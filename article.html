@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Shikela - Article Details</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        /* KEEP ALL ORIGINAL CSS EXACTLY AS IS TO GUARANTEE 0% BREAKAGE */
+        :root {
+            --primary-burgundy: #0F2C59;
+            --primary-gradient: linear-gradient(135deg, #081B38 0%, #0F2C59 50%, #030C1A 100%);
+            --accent-glow: rgba(15, 44, 89, 0.05);
+            --text-dark: #0f172a;
+            --text-muted: #64748b;
+            --bg-light: #f8fafc;
+            --border-light: #e2e8f0;
+            --card-shadow: 0 6px 20px -4px rgba(0, 0, 0, 0.04), 0 2px 8px -2px rgba(0, 0, 0, 0.02);
+            --safe-nav-height: calc(env(safe-area-inset-bottom, 0px) + 24px);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; letter-spacing: -0.2px; -webkit-tap-highlight-color: transparent; }
+        html, body { width: 100%; height: 100%; min-height: 100vh; min-height: 100dvh; background-color: #fafbfc; background-image: radial-gradient(rgba(148, 163, 184, 0.1) 1px, transparent 1px); background-size: 20px 20px; }
+        .app-view { width: 100%; height: 100%; display: flex; flex-direction: column; position: relative; }
+        .bg-wave { position: absolute; left: 0; width: 100%; z-index: 0; pointer-events: none; }
+        .bg-wave-top { top: 0; height: 11vh; min-height: 95px; }
+        .nav-header { display: flex; align-items: center; justify-content: space-between; padding: calc(12px + env(safe-area-inset-top)) 16px 12px 16px; background: rgba(8, 27, 56, 0.95); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); position: sticky; top: 0; z-index: 100; gap: 16px; }
+        .header-title-text { font-size: 16px; font-weight: 800; color: #ffffff; white-space: nowrap; }
+        .header-search-pill { flex: 1; display: flex; align-items: center; background: rgba(255, 255, 255, 0.15); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 24px; padding: 8px 14px; gap: 8px; color: rgba(255,255,255,0.7); font-size: 13px; font-weight: 500; cursor: pointer; transition: background 0.2s; max-width: 200px; margin-left: auto; }
+        .header-search-pill svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2.5; }
+        .top-nav-tabs { display: flex; align-items: center; gap: 8px; padding: 10px 16px; background: transparent; overflow-x: auto; position: relative; z-index: 99; -ms-overflow-style: none; scrollbar-width: none; }
+        .top-nav-tabs::-webkit-scrollbar { display: none; }
+        .top-tab { flex: 0 0 auto; display: flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 20px; font-size: 12px; font-weight: 700; text-decoration: none; color: var(--text-dark); background: #ffffff; border: 1px solid var(--border-light); box-shadow: 0 2px 4px rgba(0,0,0,0.02); transition: all 0.2s ease; }
+        .top-tab svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+        .top-tab.active { background: var(--primary-burgundy); color: #ffffff; border-color: var(--primary-burgundy); }
+        .app-content { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 4px 16px calc(85px + var(--safe-nav-height)) 16px; box-sizing: border-box; position: relative; z-index: 1; }
+        .broadcasts-container { display: flex; flex-direction: column; gap: 14px; padding-bottom: 24px; }
+        .featured-broadcast-card { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); border: 1px solid rgba(226, 232, 240, 0.8); border-radius: 16px; padding: 16px; box-shadow: var(--card-shadow); position: relative; overflow: hidden; }
+        .featured-broadcast-card::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: var(--primary-gradient); }
+        .badge-meta-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 6px; }
+        .spotlight-pill { background: rgba(15, 44, 89, 0.08); color: var(--primary-burgundy); padding: 3px 8px; border-radius: 6px; font-size: 9.5px; font-weight: 800; text-transform: uppercase; }
+        .spotlight-pill.system-badge { background: #f0f4f9; color: #2563eb; }
+        .timestamp-log-text { font-size: 11px; font-weight: 600; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+        .broadcast-image-frame { width: 100%; max-height: 220px; border-radius: 12px; overflow: hidden; margin-bottom: 12px; border: 1px solid var(--border-light); background: #f1f5f9; position: relative; cursor: pointer; }
+        .broadcast-image-frame img { width: 100%; height: 100%; object-fit: cover; filter: blur(12px); transition: filter 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+        .broadcast-image-frame img.loaded { filter: blur(0); }
+        .clickable-news-content { cursor: pointer; }
+        .broadcast-title { font-size: 16px; font-weight: 800; color: var(--text-dark); line-height: 1.35; margin-bottom: 6px; }
+        .broadcast-body-text { font-size: 13.5px; font-weight: 500; color: #475569; line-height: 1.55; white-space: pre-wrap; }
+        .verified-footer-shield { text-align: center; padding: 24px 0 16px 0; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+        .footer-shield-text { font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.8px; }
+        .full-news-modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #fff; z-index: 99999; display: flex; flex-direction: column; transform: translateY(100%); transition: transform 0.3s ease-in-out; }
+        .full-news-modal-overlay.active-reader { transform: translateY(0); }
+        .news-reader-header { display: flex; justify-content: space-between; align-items: center; padding: calc(12px + env(safe-area-inset-top)) 16px 12px; background: #fff; border-bottom: 1px solid var(--border-light); box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        .close-reader-btn { background: none; border: none; cursor: pointer; padding: 8px; }
+        .close-reader-btn svg { width: 20px; height: 20px; stroke: #333; stroke-width: 2.5; fill: none; }
+        .news-reader-content { flex: 1; overflow-y: auto; padding: 16px; padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
+        .reader-image-frame img { width: 100%; border-radius: 12px; margin-bottom: 16px; border: 1px solid var(--border-light); }
+        .reader-title { font-size: 20px; font-weight: 800; margin-bottom: 12px; color: var(--text-dark); line-height: 1.3; }
+        .reader-meta-bar { display: flex; justify-content: space-between; margin-bottom: 16px; align-items: center; }
+        .reader-full-body { font-size: 15px; line-height: 1.6; color: #334155; white-space: pre-wrap; }
+        .reader-video-container { position: relative; padding-bottom: 56.25%; height: 0; margin-bottom: 16px; }
+        .reader-video-container iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border-radius: 12px; border: none; }
+        .redirect-link-btn { display: flex; align-items: center; gap: 8px; background: var(--primary-burgundy); color: #fff; padding: 14px; border-radius: 12px; text-decoration: none; font-weight: 700; margin-top: 20px; justify-content: center; }
+        .redirect-link-btn svg { width: 18px; height: 18px; stroke: #fff; stroke-width: 2; fill: none; }
+        .admin-duplicate-btn { background: #e2e8f0; border: none; padding: 10px 12px; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 12px; width: 100%; margin-bottom: 10px; color: var(--text-dark); }
+        .menu-iframe-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; opacity: 0; visibility: hidden; transition: opacity 0.3s ease, visibility 0.3s ease; }
+        .menu-iframe-overlay.active { opacity: 1; visibility: visible; }
+        .menu-iframe-drawer { position: absolute; top: 0; left: 0; width: 75%; height: 100%; border: none; background: #081B38; transform: translateX(-100%); transition: transform 0.3s ease-in-out; box-shadow: 4px 0 12px rgba(0,0,0,0.3); }
+        .menu-iframe-overlay.active .menu-iframe-drawer { transform: translateX(0); }
+        .bottom-nav-spacer { position: fixed; bottom: 0; left: 0; width: 100%; height: var(--safe-nav-height); background-color: #ffffff; z-index: 8999; }
+        .ad-container-wrapper { position: fixed; bottom: var(--safe-nav-height); left: 0; width: 100%; display: flex; justify-content: center; pointer-events: none; z-index: 9000; }
+        .admob-preview-banner { width: 320px; height: 50px; background: #f1c40f; color: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 13px; font-weight: bold; border: 2px dashed #d35400; border-radius: 4px; box-shadow: 0px 4px 10px rgba(0,0,0,0.25); text-align: center; pointer-events: auto; margin-bottom: 0px; }
+        .native-ad-wrapper { display: flex; flex-direction: column; padding: 8px 12px; background: #ffffff; border-radius: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.1); margin-bottom: 12px; border: 1px solid var(--border-light); }
+        .sticky-ad-container { position: sticky; top: 0; z-index: 50; }
+        .native-ad-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; border-bottom: 1px solid #f1f5f9; padding-bottom: 6px; }
+        .native-ad-badge { background: #f59e0b; color: #fff; font-size: 10px; font-weight: 800; padding: 3px 8px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .native-ad-location { font-size: 10px; color: #64748b; font-weight: 600; }
+        .native-ad-placeholder { display: block; width: 100%; height: 95px; min-height: 95px; margin: 0; padding: 0; border-radius: 8px; position: relative; overflow: hidden; box-sizing: border-box; z-index: 1; pointer-events: none; background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%); background-size: 200% 100%; animation: adLoadingPulse 1.5s infinite; }
+        @keyframes adLoadingPulse { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+        .mock-interstitial-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 99999; display: none; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box; }
+        .mock-interstitial-overlay.active { display: flex; }
+        .mock-interstitial-card { background: #ffffff; width: 100%; max-width: 360px; border-radius: 12px; padding: 24px; text-align: center; position: relative; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+        .mock-interstitial-close { position: absolute; top: 12px; right: 12px; background: #e2e8f0; border: none; border-radius: 50%; width: 32px; height: 32px; font-size: 16px; font-weight: bold; cursor: pointer; color: #333; }
+        .search-modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(8, 27, 56, 0.6); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); z-index: 10000; flex-direction: column; padding: calc(12px + env(safe-area-inset-top)) 16px 20px 16px; }
+        .search-modal-overlay.active-search { display: flex; }
+        .search-box-header { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+        .search-input-wrapper { flex: 1; display: flex; align-items: center; background: #ffffff; border: 1px solid var(--border-light); border-radius: 12px; padding: 0 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        .search-input-wrapper svg { width: 18px; height: 18px; color: var(--text-muted); margin-right: 8px; flex-shrink: 0; }
+        .search-news-field { width: 100%; height: 44px; border: none; outline: none; font-size: 14px; font-weight: 700; color: var(--text-dark); background: transparent; }
+        .close-search-btn { background: rgba(255, 255, 255, 0.9); border: none; color: var(--text-dark); font-size: 13px; font-weight: 800; padding: 10px 14px; border-radius: 12px; cursor: pointer; }
+        .search-results-area { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+        .custom-popup-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(8, 27, 56, 0.4); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); z-index: 100000; justify-content: center; align-items: center; padding: 20px; }
+        .custom-popup-overlay.show-popup { display: flex; }
+        .custom-popup-modal { width: 100%; max-width: 360px; background: #ffffff; border-radius: 20px; padding: 24px 20px; text-align: center; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.08); }
+        .popup-status-icon { font-size: 40px; margin-bottom: 12px; display: inline-block; }
+        .popup-main-title { font-size: 17px; font-weight: 800; color: var(--text-dark); margin-bottom: 6px; }
+        .popup-body-desc { font-size: 13px; font-weight: 500; color: var(--text-muted); line-height: 1.4; margin-bottom: 20px; }
+        .popup-dismiss-action { width: 100%; padding: 12px; background: var(--primary-gradient); color: #ffffff; border: none; border-radius: 12px; font-size: 13px; font-weight: 700; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <script src="native-bridge.js"></script>
+
+    <!-- Appears exactly identical visually using active-reader class and overridden transform rule -->
+    <div class="full-news-modal-overlay active-reader" id="fullNewsModalOverlay" style="transform: translateY(0); transition: none;">
+        <div class="news-reader-header">
+            <h2 style="font-size: 16px; font-weight: 800; color: var(--text-dark);">Article Details</h2>
+            <button class="close-reader-btn" id="closeNewsReaderBtn" aria-label="Close Reader">
+                <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+        </div>
+        <div class="news-reader-content" id="fullNewsReaderBody"></div>
+    </div>
+
+    <!-- Popup for notifications when using duplicate code -->
+    <div class="custom-popup-overlay" id="customPopupModule">
+        <div class="custom-popup-modal">
+            <span class="popup-status-icon" id="popupIconNode">ℹ️</span>
+            <h3 class="popup-main-title" id="popupTitleNode">Status Alert</h3>
+            <p class="popup-body-desc" id="popupDescNode">Notification update context.</p>
+            <button class="popup-dismiss-action" id="closePopupBtn">Continue</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        // Added onValue to allow fetching AdMob configs
+        import { getDatabase, ref, onValue, set, push } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+        // Firebase for enabling duplicate as admin feature and reading ad variables
+        const firebaseConfig = {
+            apiKey: "AIzaSyCqwgwiukwKb7o6gwnaLoPQSWc7BfMDuYQ",
+            authDomain: "besuad.firebaseapp.com",
+            databaseURL: "https://besuad-default-rtdb.firebaseio.com",
+            projectId: "besuad",
+            storageBucket: "besuad.firebasestorage.app",
+            messagingSenderId: "641705823615",
+            appId: "1:641705823615:web:6502b2511ff8c0f251de4a",
+            measurementId: "G-2YSX71N08Q"
+        };
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        const APP_NODE_NAME = "app1"; 
+        
+        const urlParams = new URLSearchParams(window.location.search);
+        const isAdminMode = urlParams.get('admin') === 'true';
+
+        // Variables for AdMob Native Ads Logic
+        window.globalAdConfig = {};
+        let nativeAdObserver = null;
+        let activeNativeAdId = null;
+        let nativeAdOperation = Promise.resolve();
+
+        const escapeHTML = s => String(s || "").replace(/[&<>'"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[m]));
+
+        function formatExactTimestampWithSeconds(baseEpoch) {
+            const dateObj = new Date(baseEpoch);
+            if (isNaN(dateObj.getTime())) return "Recent";
+            return dateObj.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) + ' • ' + dateObj.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+        }
+
+        function getYouTubeEmbedUrl(url) {
+            if (!url) return null;
+            const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+            const match = url.match(regExp);
+            return (match && match[2].length === 11) ? `https://www.youtube.com/embed/${match[2]}` : null;
+        }
+
+        function getAdMobPlugin() { return window.AdMobPlugin || null; }
+        function isNativeApp() { return typeof window !== "undefined" && window.Capacitor && typeof window.Capacitor.isNativePlatform === "function" ? window.Capacitor.isNativePlatform() : false; }
+
+        function triggerUiPopup(icon, title, desc) {
+            const overlay = document.getElementById('customPopupModule');
+            if (overlay) {
+                document.getElementById('popupIconNode').innerText = icon;
+                document.getElementById('popupIconNode').style.display = "inline-block";
+                document.getElementById('popupTitleNode').innerText = title;
+                document.getElementById('popupDescNode').innerText = desc;
+                overlay.classList.add('show-popup');
+            }
+        }
+
+        // Setup AdMob logic specifically for the Article Page
+        function fetchAdMobUnits() {
+            onValue(ref(db, `${APP_NODE_NAME}/adManager`), snapshot => {
+                if (!snapshot.exists()) return;
+                const adData = snapshot.val();
+                window.globalAdConfig = { 
+                    status: String(adData.adStatus).toUpperCase() === "TRUE" || String(adData.adStatus).toUpperCase() === "ON", 
+                    bannerId: adData.adMobBannerUnitId, 
+                    nativeId: adData.adMobNativeUnitId, 
+                    placements: adData.placements || {} 
+                };
+                
+                if (window.globalAdConfig.status) {
+                    triggerArticleBottomBanner();
+                    setupArticleNativeAdsObserver();
+                }
+            });
+        }
+
+        async function triggerArticleBottomBanner() {
+            const AdPlugin = getAdMobPlugin();
+            if (isNativeApp() && AdPlugin && window.globalAdConfig.bannerId) {
+                try {
+                    // Show banner if already created by main page, or create new if directly accessed
+                    await AdPlugin.showBanner();
+                } catch (e) {
+                    try {
+                        await AdPlugin.createBanner({ adUnitId: window.globalAdConfig.bannerId, isAutoShow: true, position: "BOTTOM", adSize: "ADAPTIVE_BANNER", isOverlapping: true });
+                    } catch (err) {}
+                }
+            }
+        }
+
+        function setupArticleNativeAdsObserver() {
+            const AdPlugin = getAdMobPlugin();
+            if (!isNativeApp() || !AdPlugin || !window.globalAdConfig.nativeId) return;
+
+            nativeAdObserver = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    const element = entry.target;
+                    if (entry.isIntersecting) {
+                        showNativeAdForSlot(element);
+                    } else {
+                        if (activeNativeAdId === element.id) {
+                            hideCurrentNativeAd();
+                        }
+                    }
+                });
+            }, { threshold: 0.1 });
+
+            const topAd = document.getElementById('article-native-top');
+            const bottomAd = document.getElementById('article-native-bottom');
+            if (topAd) nativeAdObserver.observe(topAd);
+            if (bottomAd) nativeAdObserver.observe(bottomAd);
+        }
+
+        async function showNativeAdForSlot(element) {
+            const AdPlugin = getAdMobPlugin();
+            if (!element || !element.id || activeNativeAdId === element.id) return;
+            
+            nativeAdOperation = nativeAdOperation.then(async () => {
+                if (activeNativeAdId) {
+                    try { await AdPlugin.hideNativeAd(); } catch (_) {}
+                    activeNativeAdId = null;
+                }
+                
+                const rect = element.getBoundingClientRect();
+                if (rect.width <= 0 || rect.height <= 0) return;
+
+                // Determine template based on placement: Top = small, Bottom (250x300 target) = medium
+                const templateType = element.id.includes('bottom') ? 'medium' : 'small'; 
+                
+                try {
+                    await AdPlugin.showNativeAd({
+                        adId: element.id, 
+                        adUnitId: window.globalAdConfig.nativeId, 
+                        template: templateType, 
+                        x: Math.round(rect.left), 
+                        y: Math.round(rect.top), 
+                        width: Math.round(rect.width), 
+                        height: Math.round(rect.height)
+                    });
+                    activeNativeAdId = element.id;
+                } catch (error) {}
+            });
+            await nativeAdOperation;
+        }
+
+        async function hideCurrentNativeAd() {
+            const AdPlugin = getAdMobPlugin();
+            if (activeNativeAdId && AdPlugin) {
+                try { await AdPlugin.hideNativeAd(); } catch (error) {}
+                activeNativeAdId = null;
+            }
+        }
+
+        document.getElementById('closePopupBtn').addEventListener('click', () => {
+            document.getElementById('customPopupModule').classList.remove('show-popup');
+        });
+
+        window.duplicateAsAdmin = async function() {
+            const itemStr = sessionStorage.getItem('shikela_current_article');
+            if (!itemStr) return;
+            const sourceItem = JSON.parse(itemStr);
+            
+            try {
+                const clonedPayload = { ...sourceItem };
+                const targetNodePath = clonedPayload._dbPath || `shikelaNews`;
+                delete clonedPayload.id; delete clonedPayload._dbPath;
+                const now = Date.now();
+                clonedPayload.createdAtTimestamp = now; clonedPayload.updatedAt = now; clonedPayload.timestamp = now;
+                clonedPayload.title = `${clonedPayload.title || clonedPayload.newsTitle || "Untitled"} (Copy)`;
+                if (clonedPayload.newsCode || clonedPayload.code) clonedPayload.newsCode = `${clonedPayload.newsCode || clonedPayload.code}_COPY`;
+                
+                const nodeRef = ref(db, `${APP_NODE_NAME}/${targetNodePath}`);
+                await set(push(nodeRef), clonedPayload);
+                triggerUiPopup("✅", "Article Duplicated", `Successfully duplicated item.`);
+            } catch (err) { triggerUiPopup("❌", "Duplication Error", "Failed to duplicate item into database."); }
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const itemStr = sessionStorage.getItem('shikela_current_article');
+            
+            // Redirect back to main if directly accessed without selecting an article
+            if (!itemStr) { window.location.href = 's.html'; return; }
+            
+            const item = JSON.parse(itemStr);
+            const readerBody = document.getElementById('fullNewsReaderBody');
+            
+            const headline = item.title || item.newsTitle || "Shikela Update";
+            const fullContent = item.content || item.message || "";
+            const category = item.category || "Online Update";
+            const imageUrl = item.imageUrl || item.image || "";
+            const videoUrl = item.videoUrl || item.youtubeUrl || item.youtubeId || "";
+            const duplicateCoverInArticle = Boolean(item.duplicateCoverInArticle ?? item.duplicateImageInArticle ?? item.duplicateImage ?? true);
+            const targetRedirectUrl = item.link || item.redirectUrl || "";
+            const customActionLabel = item.actionButtonLabel || item.buttonLabel || "Visit External Source / Link";
+
+            let numericalTime = item.updatedAt || item.createdAtTimestamp || item.timestamp;
+            if (!numericalTime && item.date) { const parsed = new Date(item.date).getTime(); if (!isNaN(parsed)) numericalTime = parsed; }
+            if (!numericalTime) numericalTime = Date.now();
+
+            const initialFormattedClock = formatExactTimestampWithSeconds(numericalTime);
+            const isTips = category.trim().toLowerCase().includes("tips");
+            const pillBadgeClass = isTips ? "spotlight-pill system-badge" : "spotlight-pill";
+
+            let imageHTML = "";
+            if (imageUrl && imageUrl.trim().length > 0 && duplicateCoverInArticle) {
+                imageHTML = `<div class="reader-image-frame"><img src="${escapeHTML(imageUrl)}" alt="${escapeHTML(headline)}"></div>`;
+            }
+
+            let videoHTML = "";
+            const embedUrl = getYouTubeEmbedUrl(videoUrl);
+            if (embedUrl) {
+                videoHTML = `<div class="reader-video-container"><iframe src="${escapeHTML(embedUrl)}" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"></iframe></div>`;
+            }
+
+            let redirectBtnHTML = "";
+            if (targetRedirectUrl && targetRedirectUrl.trim().length > 0) {
+                redirectBtnHTML = `
+                    <div style="margin-top:20px;">
+                        <a href="${escapeHTML(targetRedirectUrl)}" target="_blank" rel="noopener noreferrer" class="redirect-link-btn" style="width:100%; justify-content:center;">
+                            <span>${escapeHTML(customActionLabel)}</span>
+                            <svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                        </a>
+                    </div>
+                `;
+            }
+
+            let adminDuplicateBtnReader = "";
+            if (isAdminMode) adminDuplicateBtnReader = `<button class="admin-duplicate-btn" style="margin-bottom: 12px; width: 100%;" onclick="duplicateAsAdmin()">📋 Duplicate Article Entry</button>`;
+
+            // Inject native ad placeholders directly into the DOM structure
+            let topNativeAdHTML = `<div id="article-native-top" class="native-ad-placeholder" style="margin-bottom: 16px;"></div>`;
+            let bottomNativeAdHTML = `<div id="article-native-bottom" class="native-ad-placeholder" style="height: 300px; min-height: 300px; margin-top: 20px;"></div>`;
+
+            readerBody.innerHTML = `
+                ${adminDuplicateBtnReader}
+                <div class="reader-meta-bar">
+                    <div style="display:flex; align-items:center; gap:6px;"><span class="${pillBadgeClass}">${escapeHTML(category)}</span></div>
+                    <span class="timestamp-log-text">${initialFormattedClock}</span>
+                </div>
+                <h1 class="reader-title">${escapeHTML(headline)}</h1>
+                ${imageHTML}
+                ${topNativeAdHTML} <!-- NEW TOP NATIVE AD -->
+                ${videoHTML}
+                <div class="reader-full-body">${fullContent}</div>
+                ${redirectBtnHTML}
+                ${bottomNativeAdHTML} <!-- NEW BOTTOM NATIVE AD (250x300 template mapping) -->
+            `;
+            
+            // Kick off AdMob configurations to bind observers and banner
+            fetchAdMobUnits();
+        });
+        
+        // Hide currently visible native ads before navigating backward to prevent overlapping on main feed
+        document.getElementById('closeNewsReaderBtn').addEventListener('click', () => {
+            hideCurrentNativeAd().then(() => {
+                window.history.back();
+            });
+        });
+    </script>
+</body>
+</html>
