@@ -54,52 +54,71 @@
             align-items: center;
             justify-content: space-between;
             padding: calc(12px + env(safe-area-inset-top)) 16px 12px 16px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.12);
-            background: rgba(8, 27, 56, 0.85);
+            background: rgba(8, 27, 56, 0.95);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
             position: sticky;
             top: 0;
             z-index: 100;
-            gap: 8px;
+            gap: 16px;
         }
 
-        .header-left-group { display: flex; align-items: center; gap: 10px; flex: 1; }
+        .header-title-text { font-size: 16px; font-weight: 800; color: #ffffff; white-space: nowrap; }
 
-        .back-action-btn, .search-action-btn {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            background: rgba(255, 255, 255, 0.12);
-            border: 1px solid rgba(255, 255, 255, 0.2);
+        /* --- NEW SEARCH PILL --- */
+        .header-search-pill {
+            flex: 1;
             display: flex;
             align-items: center;
-            justify-content: center;
-            color: #ffffff;
-            cursor: pointer;
-            text-decoration: none;
-            transition: transform 0.15s ease;
-            flex-shrink: 0;
-        }
-        .back-action-btn:active, .search-action-btn:active { transform: scale(0.92); }
-        .back-action-btn svg, .search-action-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.5; }
-
-        .header-title-text { font-size: 15px; font-weight: 800; color: #ffffff; white-space: nowrap; }
-
-        .header-live-clock-badge {
             background: rgba(255, 255, 255, 0.15);
             border: 1px solid rgba(255, 255, 255, 0.2);
-            padding: 5px 10px;
-            border-radius: 8px;
-            color: #ffffff;
-            font-size: 11px;
-            font-weight: 700;
-            font-variant-numeric: tabular-nums;
-            letter-spacing: 0.2px;
-            backdrop-filter: blur(4px);
-            -webkit-backdrop-filter: blur(4px);
+            border-radius: 24px;
+            padding: 8px 14px;
+            gap: 8px;
+            color: rgba(255,255,255,0.7);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s;
+            max-width: 200px;
+            margin-left: auto;
+        }
+        .header-search-pill svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2.5; }
+
+        /* --- NEW TOP NAV TABS (Replaces Bottom Nav) --- */
+        .top-nav-tabs {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 16px;
+            background: transparent;
+            overflow-x: auto;
+            position: relative;
+            z-index: 99;
+            /* Hide scrollbar */
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        .top-nav-tabs::-webkit-scrollbar { display: none; }
+
+        .top-tab {
+            flex: 0 0 auto;
             text-align: center;
-            margin: 0 auto;
+            padding: 10px 20px;
+            border-radius: 24px;
+            font-size: 13px;
+            font-weight: 700;
+            text-decoration: none;
+            color: var(--text-dark);
+            background: #ffffff;
+            border: 1px solid var(--border-light);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+            transition: all 0.2s ease;
+        }
+        .top-tab.active {
+            background: var(--primary-burgundy);
+            color: #ffffff;
+            border-color: var(--primary-burgundy);
         }
 
         /* --- APP CONTENT --- */
@@ -107,7 +126,7 @@
             flex: 1;
             overflow-y: auto;
             -webkit-overflow-scrolling: touch;
-            padding: 16px 16px calc(130px + env(safe-area-inset-bottom, 32px)) 16px;
+            padding: 4px 16px calc(32px + env(safe-area-inset-bottom, 16px)) 16px;
             box-sizing: border-box;
             position: relative;
             z-index: 1;
@@ -166,8 +185,8 @@
         .menu-iframe-overlay.active .menu-iframe-drawer { transform: translateX(0); }
 
         /* --- AD MOB STYLES --- */
-        .ad-container-wrapper { position: fixed; bottom: calc(65px + env(safe-area-inset-bottom, 0px)); left: 0; width: 100%; display: flex; justify-content: center; pointer-events: none; z-index: 9000; }
-        .admob-preview-banner { width: 320px; height: 50px; background: #f1c40f; color: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 13px; font-weight: bold; border: 2px dashed #d35400; border-radius: 4px; box-shadow: 0px 4px 10px rgba(0,0,0,0.25); text-align: center; pointer-events: auto; }
+        .ad-container-wrapper { position: fixed; bottom: 0; left: 0; width: 100%; display: flex; justify-content: center; pointer-events: none; z-index: 9000; }
+        .admob-preview-banner { width: 320px; height: 50px; background: #f1c40f; color: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 13px; font-weight: bold; border: 2px dashed #d35400; border-radius: 4px; box-shadow: 0px 4px 10px rgba(0,0,0,0.25); text-align: center; pointer-events: auto; margin-bottom: env(safe-area-inset-bottom, 0px); }
         
         .native-ad-wrapper { 
             display: flex; flex-direction: column; padding: 8px 12px; background: #ffffff; 
@@ -217,19 +236,6 @@
         .popup-main-title { font-size: 17px; font-weight: 800; color: var(--text-dark); margin-bottom: 6px; }
         .popup-body-desc { font-size: 13px; font-weight: 500; color: var(--text-muted); line-height: 1.4; margin-bottom: 20px; }
         .popup-dismiss-action { width: 100%; padding: 12px; background: var(--primary-gradient); color: #ffffff; border: none; border-radius: 12px; font-size: 13px; font-weight: 700; cursor: pointer; }
-
-        /* --- BOTTOM NAVIGATION --- */
-        .bottom-nav {
-            position: fixed; bottom: 0; left: 0; right: 0; height: calc(65px + env(safe-area-inset-bottom, 0px));
-            background-color: #ffffff; display: flex; justify-content: space-around; align-items: flex-start;
-            padding-top: 6px; border-top: 1px solid var(--border-light); box-shadow: 0 -2px 10px rgba(0,0,0,0.05); 
-            z-index: 1000; padding-bottom: env(safe-area-inset-bottom, 0px);
-        }
-        .nav-item { display: flex; flex-direction: column; align-items: center; justify-content: center; text-decoration: none; color: var(--text-muted); font-size: 11px; font-weight: 600; width: 25%; height: 52px; transition: color 0.2s ease; cursor: pointer; border: none; background: none; outline: none; touch-action: manipulation; }
-        .nav-item svg { width: 22px; height: 22px; margin-bottom: 2px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-        .nav-item .icon-bg { display: flex; align-items: center; justify-content: center; padding: 4px 16px; border-radius: 16px; transition: background-color 0.2s ease; }
-        .nav-item.active { color: #0F2C59; font-weight: 700; }
-        .nav-item.active .icon-bg { background-color: rgba(15, 44, 89, 0.08); }
     </style>
 </head>
 <body>
@@ -265,17 +271,24 @@
         </div>
 
         <header class="nav-header">
-            <div class="header-left-group">
+            <div style="display:flex; align-items:center; gap:12px;">
                 <button type="button" class="menu-action-btn" id="openMenuIframeBtn" style="background:none; border:none; cursor:pointer; color:inherit; padding:0; display:flex; align-items:center; justify-content:center;">
                     <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
                 </button>
+                <h1 class="header-title-text">What's new?</h1>
             </div>
-            <div style="flex:1; text-align:center;"><h1 class="header-title-text">What's new?</h1></div>
-            <div style="display:flex; align-items:center; gap:8px;">
-                <div class="header-live-clock-badge" id="topCornerLiveClock">00:00:00 AM</div>
-                <button class="search-action-btn" id="openSearchBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg></button>
+            <div class="header-search-pill" id="openSearchBtn">
+                <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                <span>Search updates...</span>
             </div>
         </header>
+        
+        <div class="top-nav-tabs">
+            <a href="index.html" class="top-tab active">Home</a>
+            <a href="s.html" class="top-tab">Online Jobs</a>
+            <a href="in.html" class="top-tab">Tech</a>
+            <a href="sm.html" class="top-tab">Social Media</a>
+        </div>
 
         <main class="app-content" id="mainContentArea">
             <div class="broadcasts-container" id="broadcastsContainer">
@@ -299,13 +312,6 @@
                 <button id="mockInterstitialContinueBtn" style="width:100%; margin-top:15px; background:#2563eb; color:#fff; border:none; padding:10px; border-radius:6px; font-weight:bold; cursor:pointer;">Continue to Article</button>
             </div>
         </div>
-
-        <nav class="bottom-nav">
-            <a id="nav-home" href="index.html" class="nav-item active"><div class="icon-bg"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg></div><span>Home</span></a>
-            <a id="nav-jobs" href="s.html" class="nav-item"><div class="icon-bg"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg></div><span>Online Jobs</span></a>
-            <a id="nav-tech" href="in.html" class="nav-item"><div class="icon-bg"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg></div><span>Tech</span></a>
-            <a id="nav-social" href="sm.html" class="nav-item"><div class="icon-bg"><svg viewBox="0 0 24 24"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path></svg></div><span>Social Media</span></a>
-        </nav>
     </div>
 
     <script type="module">
@@ -588,8 +594,6 @@
 
         function initiateLiveInterfaceClocks() {
             setInterval(() => {
-                const cornerClockNode = document.getElementById("topCornerLiveClock");
-                if (cornerClockNode) cornerClockNode.innerText = new Date().toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true });
                 document.querySelectorAll(".timestamp-log-text[data-timestamp]").forEach(node => {
                     const rawTime = parseInt(node.getAttribute("data-timestamp"));
                     if (rawTime) node.innerText = formatExactTimestampWithSeconds(rawTime);
