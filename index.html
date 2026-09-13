@@ -528,7 +528,13 @@
             if (isNativeApp() && AdPlugin) {
                 try {
                     if (!bannerCreated) {
-                        await AdPlugin.createBanner({ adUnitId: window.globalAdConfig.bannerId, isAutoShow: true, position: "BOTTOM", adSize: "BANNER", isOverlapping: true, margin: 65 });
+                        await AdPlugin.createBanner({ 
+                            adUnitId: window.globalAdConfig.bannerId, 
+                            isAutoShow: true, 
+                            position: "BOTTOM", 
+                            adSize: "ADAPTIVE_BANNER", 
+                            isOverlapping: false 
+                        });
                         bannerCreated = true;
                     } else if (AdPlugin.showBanner) { await AdPlugin.showBanner(); }
                 } catch (e) { console.error("Banner Ad Failed:", e); }
