@@ -16,6 +16,8 @@
             --bg-light: #f8fafc;
             --border-light: #e2e8f0;
             --card-shadow: 0 6px 20px -4px rgba(0, 0, 0, 0.04), 0 2px 8px -2px rgba(0, 0, 0, 0.02);
+            /* New variable to explicitly handle Android bottom nav bars */
+            --safe-nav-height: calc(env(safe-area-inset-bottom, 0px) + 24px);
         }
 
         * {
@@ -65,7 +67,6 @@
 
         .header-title-text { font-size: 16px; font-weight: 800; color: #ffffff; white-space: nowrap; }
 
-        /* --- NEW SEARCH PILL --- */
         .header-search-pill {
             flex: 1;
             display: flex;
@@ -85,17 +86,16 @@
         }
         .header-search-pill svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2.5; }
 
-        /* --- NEW TOP NAV TABS (Replaces Bottom Nav) --- */
+        /* --- NEW TOP NAV TABS (With Icons & Reduced Size) --- */
         .top-nav-tabs {
             display: flex;
             align-items: center;
-            gap: 10px;
-            padding: 12px 16px;
+            gap: 8px;
+            padding: 10px 16px;
             background: transparent;
             overflow-x: auto;
             position: relative;
             z-index: 99;
-            /* Hide scrollbar */
             -ms-overflow-style: none;
             scrollbar-width: none;
         }
@@ -103,10 +103,12 @@
 
         .top-tab {
             flex: 0 0 auto;
-            text-align: center;
-            padding: 10px 20px;
-            border-radius: 24px;
-            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px; /* Reduced from 10px 20px */
+            border-radius: 20px;
+            font-size: 12px; /* Reduced from 13px */
             font-weight: 700;
             text-decoration: none;
             color: var(--text-dark);
@@ -114,6 +116,16 @@
             border: 1px solid var(--border-light);
             box-shadow: 0 2px 4px rgba(0,0,0,0.02);
             transition: all 0.2s ease;
+        }
+        .top-tab svg {
+            width: 14px;
+            height: 14px;
+            stroke: currentColor;
+            fill: none;
+            stroke-width: 2.2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            flex-shrink: 0;
         }
         .top-tab.active {
             background: var(--primary-burgundy);
@@ -126,7 +138,8 @@
             flex: 1;
             overflow-y: auto;
             -webkit-overflow-scrolling: touch;
-            padding: 4px 16px calc(85px + env(safe-area-inset-bottom, 0px)) 16px;
+            /* Added var(--safe-nav-height) to completely clear the ad and the new white spacer */
+            padding: 4px 16px calc(85px + var(--safe-nav-height)) 16px;
             box-sizing: border-box;
             position: relative;
             z-index: 1;
@@ -184,8 +197,25 @@
         .menu-iframe-drawer { position: absolute; top: 0; left: 0; width: 75%; height: 100%; border: none; background: #081B38; transform: translateX(-100%); transition: transform 0.3s ease-in-out; box-shadow: 4px 0 12px rgba(0,0,0,0.3); }
         .menu-iframe-overlay.active .menu-iframe-drawer { transform: translateX(0); }
 
-        /* --- AD MOB STYLES --- */
-        .ad-container-wrapper { position: fixed; bottom: 0; left: 0; width: 100%; display: flex; justify-content: center; pointer-events: none; z-index: 9000; }
+        /* --- AD MOB STYLES & BOTTOM NAV SPACER --- */
+        
+        /* Forces a physical white block at the absolute bottom to clear system nav bars */
+        .bottom-nav-spacer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: var(--safe-nav-height);
+            background-color: #ffffff;
+            z-index: 8999;
+        }
+
+        .ad-container-wrapper { 
+            position: fixed; 
+            /* Pushes the ad wrapper exactly above the white nav spacer */
+            bottom: var(--safe-nav-height); 
+            left: 0; width: 100%; display: flex; justify-content: center; pointer-events: none; z-index: 9000; 
+        }
         .admob-preview-banner { width: 320px; height: 50px; background: #f1c40f; color: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 13px; font-weight: bold; border: 2px dashed #d35400; border-radius: 4px; box-shadow: 0px 4px 10px rgba(0,0,0,0.25); text-align: center; pointer-events: auto; margin-bottom: 0px; }
         
         .native-ad-wrapper { 
@@ -283,11 +313,24 @@
             </div>
         </header>
         
+        <!-- UPDATED TABS: Added inline SVGs and compact styling -->
         <div class="top-nav-tabs">
-            <a href="index.html" class="top-tab active">Home</a>
-            <a href="s.html" class="top-tab">Online Jobs</a>
-            <a href="in.html" class="top-tab">Tech</a>
-            <a href="sm.html" class="top-tab">Social Media</a>
+            <a href="index.html" class="top-tab active">
+                <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+                Home
+            </a>
+            <a href="s.html" class="top-tab">
+                <svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
+                Online Jobs
+            </a>
+            <a href="in.html" class="top-tab">
+                <svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect><rect x="9" y="9" width="6" height="6"></rect><line x1="9" y1="1" x2="9" y2="4"></line><line x1="15" y1="1" x2="15" y2="4"></line><line x1="9" y1="20" x2="9" y2="23"></line><line x1="15" y1="20" x2="15" y2="23"></line><line x1="20" y1="9" x2="23" y2="9"></line><line x1="20" y1="14" x2="23" y2="14"></line><line x1="1" y1="9" x2="4" y2="9"></line><line x1="1" y1="14" x2="4" y2="14"></line></svg>
+                Tech
+            </a>
+            <a href="sm.html" class="top-tab">
+                <svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+                Social 
+            </a>
         </div>
 
         <main class="app-content" id="mainContentArea">
@@ -300,6 +343,9 @@
         <div class="ad-container-wrapper" id="adContainerWrapper" style="display:none;">
             <div class="admob-preview-banner" id="admobPreviewBanner">Home Banner Ad Preview Loading...</div>
         </div>
+        
+        <!-- NEW: Dedicated white spacer block to sit behind the OS system navigation bar -->
+        <div class="bottom-nav-spacer"></div>
 
         <div class="mock-interstitial-overlay" id="mockInterstitialModal">
             <div class="mock-interstitial-card">
