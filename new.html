@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Yala Tech Tips - Admin Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Firebase JS SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #F7F9FC;
+            --surface-color: #FFFFFF;
+            --text-main: #111827;
+            --text-soft: #6B7280;
+            --primary: #3B82F6;
+            --primary-hover: #2563EB;
+            --primary-light: #EFF6FF;
+            --border-color: #E5E7EB;
+            --input-bg: #F9FAFB;
+            --success: #10B981;
+            --danger: #EF4444;
+            --radius-lg: 24px;
+            --radius-md: 16px;
+            --radius-sm: 12px;
+            --shadow-soft: 0 10px 40px -10px rgba(0, 0, 0, 0.08);
+            --shadow-hover: 0 20px 40px -10px rgba(0, 0, 0, 0.12);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 24px 16px;
+            /* Gentle, warm background pattern */
+            background-image: 
+                radial-gradient(at 10% 0%, rgba(59, 130, 246, 0.08) 0px, transparent 50%),
+                radial-gradient(at 90% 100%, rgba(16, 185, 129, 0.05) 0px, transparent 50%);
+            background-attachment: fixed;
+        }
+
+        /* Clean, approachable main container */
+        .dashboard-wrapper {
+            width: 100%;
+            max-width: 440px;
+            background: var(--surface-color);
+            border-radius: var(--radius-lg);
+            padding: 32px 28px;
+            box-shadow: var(--shadow-soft);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            position: relative;
+        }
+
+        /* Welcoming Header */
+        .header-section {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .avatar-placeholder {
+            width: 64px;
+            height: 64px;
+            background: var(--primary-light);
+            color: var(--primary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            margin: 0 auto 16px;
+        }
+
+        .title {
+            font-size: 24px;
+            font-weight: 800;
+            color: var(--text-main);
+            margin-bottom: 6px;
+            letter-spacing: -0.5px;
+        }
+
+        .subtitle {
+            font-size: 14px;
+            color: var(--text-soft);
+            font-weight: 500;
+            line-height: 1.5;
+        }
+
+        .user-greeting {
+            display: inline-block;
+            margin-top: 12px;
+            padding: 6px 14px;
+            background: #F3F4F6;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        /* Friendly Form Inputs */
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .input-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .input-wrapper label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-main);
+            margin-left: 4px;
+        }
+
+        .custom-input {
+            width: 100%;
+            background: var(--input-bg);
+            border: 2px solid transparent;
+            border-radius: var(--radius-sm);
+            padding: 14px 16px;
+            font-size: 15px;
+            color: var(--text-main);
+            transition: all 0.2s ease;
+            outline: none;
+        }
+
+        .custom-input:focus {
+            background: var(--surface-color);
+            border-color: var(--primary);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1);
+        }
+
+        .custom-input::placeholder {
+            color: #9CA3AF;
+        }
+
+        .pin-input {
+            text-align: center;
+            letter-spacing: 8px;
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        /* Soft Button Design */
+        .primary-btn {
+            width: 100%;
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 16px;
+            border-radius: var(--radius-sm);
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .primary-btn:hover {
+            background: var(--primary-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(59, 130, 246, 0.2);
+        }
+
+        .primary-btn:active {
+            transform: translateY(0);
+        }
+
+        .primary-btn:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Content Cards (Post Login) */
+        .module-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .action-card {
+            background: #FFFFFF;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 20px;
+            text-decoration: none;
+            display: flex;
+            align-items: flex-start;
+            gap: 16px;
+            transition: all 0.2s ease;
+        }
+
+        .action-card:hover {
+            border-color: var(--primary);
+            box-shadow: var(--shadow-hover);
+            transform: translateY(-3px);
+        }
+
+        .card-icon {
+            font-size: 24px;
+            background: var(--primary-light);
+            width: 48px;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            flex-shrink: 0;
+        }
+
+        .card-text h3 {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text-main);
+            margin-bottom: 4px;
+        }
+
+        .card-text p {
+            font-size: 13px;
+            color: var(--text-soft);
+            line-height: 1.5;
+        }
+
+        /* Settings Area */
+        .settings-area {
+            background: var(--input-bg);
+            border-radius: var(--radius-md);
+            padding: 20px;
+            border: 1px solid var(--border-color);
+        }
+
+        .settings-header {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text-main);
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Smooth Humanized Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(17, 24, 39, 0.4);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal-overlay.show {
+            display: flex;
+            opacity: 1;
+        }
+
+        .dialog-box {
+            background: var(--surface-color);
+            width: 100%;
+            max-width: 340px;
+            border-radius: var(--radius-lg);
+            padding: 28px 24px;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            transform: scale(0.95) translateY(10px);
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .modal-overlay.show .dialog-box {
+            transform: scale(1) translateY(0);
+        }
+
+        .dialog-icon {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            margin: 0 auto 16px;
+        }
+
+        .dialog-icon.success { background: #D1FAE5; color: var(--success); }
+        .dialog-icon.error { background: #FEE2E2; color: var(--danger); }
+
+        .dialog-title {
+            font-size: 18px;
+            font-weight: 800;
+            margin-bottom: 8px;
+            color: var(--text-main);
+        }
+
+        .dialog-desc {
+            font-size: 14px;
+            color: var(--text-soft);
+            line-height: 1.5;
+            margin-bottom: 24px;
+        }
+
+        .dialog-btn {
+            background: var(--input-bg);
+            color: var(--text-main);
+            border: none;
+            width: 100%;
+            padding: 14px;
+            border-radius: var(--radius-sm);
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .dialog-btn:hover { background: #E5E7EB; }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <div class="dashboard-wrapper">
+        
+        <!-- Header -->
+        <header class="header-section">
+            <div class="avatar-placeholder">💻</div>
+            <h1 class="title">Yala Tech Tips</h1>
+            <p class="subtitle" id="subText">Please log in to manage your content.</p>
+            <div id="activeUserBadge" class="user-greeting hidden"></div>
+        </header>
+
+        <!-- Login Screen -->
+        <div id="loginView">
+            <div class="form-group">
+                <div class="input-wrapper">
+                    <label>Your Name</label>
+                    <input type="text" id="loginName" class="custom-input" placeholder="e.g. Admin" autocomplete="off">
+                </div>
+                <div class="input-wrapper">
+                    <label>Access PIN</label>
+                    <input type="password" id="loginPin" class="custom-input pin-input" maxlength="8" placeholder="••••" autocomplete="off">
+                </div>
+            </div>
+            <button class="primary-btn" id="loginBtn" onclick="handleLogin()">
+                Sign In
+            </button>
+        </div>
+
+        <!-- Dashboard Screen -->
+        <div id="dashboardView" class="hidden">
+            
+            <div class="module-grid">
+                <!-- Manage Posts -->
+                <a href="adminnews.html?app=app10#post" class="action-card">
+                    <div class="card-icon">📝</div>
+                    <div class="card-text">
+                        <h3>Publish Content</h3>
+                        <p>Write new tips, updates, and articles for your audience.</p>
+                    </div>
+                </a>
+
+                <!-- Manage Messages -->
+                <a href="contacts.html?app=app10#contacts" class="action-card">
+                    <div class="card-icon">💬</div>
+                    <div class="card-text">
+                        <h3>User Messages</h3>
+                        <p>Read feedback and manage your social media links.</p>
+                    </div>
+                </a>
+            </div>
+
+            <!-- Settings -->
+            <div class="settings-area">
+                <div class="settings-header">
+                    <span>⚙️</span> Update Login Details
+                </div>
+                <div class="form-group" style="margin-bottom: 16px;">
+                    <input type="text" id="newName" class="custom-input" placeholder="New Display Name" style="margin-bottom: 12px;">
+                    <input type="password" id="currentPin" class="custom-input pin-input" placeholder="Current PIN" style="margin-bottom: 12px;">
+                    <input type="password" id="newPin" class="custom-input pin-input" placeholder="New PIN" style="margin-bottom: 12px;">
+                    <input type="password" id="confirmPin" class="custom-input pin-input" placeholder="Confirm New PIN">
+                </div>
+                <button class="primary-btn" id="saveCredsBtn" onclick="updateSecurity()">
+                    Save Changes
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Friendly Dialog Modal -->
+    <div id="friendlyModal" class="modal-overlay">
+        <div class="dialog-box">
+            <div id="dialogIcon" class="dialog-icon"></div>
+            <h3 id="dialogTitle" class="dialog-title">Title</h3>
+            <p id="dialogDesc" class="dialog-desc">Description goes here.</p>
+            <button class="dialog-btn" onclick="closeDialog()">Got it</button>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // 🔴 APP 2 CONFIGURATION
+        // ==========================================
+        const APP_NODE = "app10";
+        const DEFAULT_PIN = "1234";
+        const DEFAULT_USER = "Yala Tech Admin";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCqwgwiukwKb7o6gwnaLoPQSWc7BfMDuYQ",
+            authDomain: "besuad.firebaseapp.com",
+            databaseURL: "https://besuad-default-rtdb.firebaseio.com",
+            projectId: "besuad",
+            storageBucket: "besuad.firebasestorage.app",
+            messagingSenderId: "641705823615",
+            appId: "1:641705823615:web:6502b2511ff8c0f251de4a",
+            measurementId: "G-2YSX71N08Q"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // Modal Logic
+        function showDialog(type, title, message) {
+            const modal = document.getElementById('friendlyModal');
+            const icon = document.getElementById('dialogIcon');
+            
+            document.getElementById('dialogTitle').innerText = title;
+            document.getElementById('dialogDesc').innerText = message;
+
+            if (type === 'success') {
+                icon.className = 'dialog-icon success';
+                icon.innerText = '✓';
+            } else {
+                icon.className = 'dialog-icon error';
+                icon.innerText = '!';
+            }
+            
+            modal.classList.add('show');
+        }
+
+        function closeDialog() {
+            document.getElementById('friendlyModal').classList.remove('show');
+        }
+
+        // Login Logic
+        async function handleLogin() {
+            const nameInput = document.getElementById('loginName').value.trim();
+            const pinInput = document.getElementById('loginPin').value.trim();
+            const btn = document.getElementById('loginBtn');
+
+            if (!nameInput || !pinInput) {
+                showDialog('error', 'Missing info', 'Please enter both your name and PIN to continue.');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerText = "Checking...";
+
+            try {
+                // Read from APP 2 path
+                const pinSnap = await db.ref(`${APP_NODE}/adminPin`).once('value');
+                const userSnap = await db.ref(`${APP_NODE}/adminUsername`).once('value');
+
+                let dbPin = pinSnap.val();
+                let dbUser = userSnap.val();
+
+                // Auto-create defaults if they don't exist yet
+                if (!dbPin) {
+                    dbPin = DEFAULT_PIN;
+                    await db.ref(`${APP_NODE}/adminPin`).set(DEFAULT_PIN);
+                }
+                if (!dbUser) {
+                    dbUser = DEFAULT_USER;
+                    await db.ref(`${APP_NODE}/adminUsername`).set(DEFAULT_USER);
+                }
+
+                if (nameInput.toLowerCase() === dbUser.toLowerCase() && pinInput === dbPin.toString()) {
+                    // Success - Show Dashboard
+                    document.getElementById('loginView').classList.add('hidden');
+                    document.getElementById('dashboardView').classList.remove('hidden');
+                    
+                    document.getElementById('subText').innerText = "What would you like to do today?";
+                    
+                    const badge = document.getElementById('activeUserBadge');
+                    badge.innerText = `Logged in as: ${dbUser}`;
+                    badge.classList.remove('hidden');
+
+                    document.getElementById('newName').value = dbUser;
+                } else {
+                    showDialog('error', 'Oops!', 'That name or PIN doesn\'t match our records.');
+                    document.getElementById('loginPin').value = "";
+                }
+            } catch (err) {
+                console.error(err);
+                showDialog('error', 'Connection issue', 'We couldn\'t connect to the database right now.');
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "Sign In";
+            }
+        }
+
+        // Settings Logic
+        async function updateSecurity() {
+            const newName = document.getElementById('newName').value.trim();
+            const curPin = document.getElementById('currentPin').value.trim();
+            const newPin = document.getElementById('newPin').value.trim();
+            const cfmPin = document.getElementById('confirmPin').value.trim();
+            const btn = document.getElementById('saveCredsBtn');
+
+            if (!newName) {
+                showDialog('error', 'Name required', 'Please enter a name.');
+                return;
+            }
+            if (!curPin || !newPin || !cfmPin) {
+                showDialog('error', 'PINs required', 'Please fill out all the PIN fields to update.');
+                return;
+            }
+            if (newPin !== cfmPin) {
+                showDialog('error', 'PINs don\'t match', 'Your new PIN and the confirmation don\'t match.');
+                return;
+            }
+            if (newPin.length < 4) {
+                showDialog('error', 'Too short', 'For security, your new PIN should be at least 4 digits.');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerText = "Saving...";
+
+            try {
+                const pinSnap = await db.ref(`${APP_NODE}/adminPin`).once('value');
+                const validPin = pinSnap.val() || DEFAULT_PIN;
+
+                if (curPin !== validPin.toString()) {
+                    showDialog('error', 'Incorrect PIN', 'The current PIN you entered is wrong.');
+                } else {
+                    await db.ref(`${APP_NODE}/adminPin`).set(newPin);
+                    await db.ref(`${APP_NODE}/adminUsername`).set(newName);
+
+                    document.getElementById('activeUserBadge').innerText = `Logged in as: ${newName}`;
+                    showDialog('success', 'All set!', 'Your login details have been updated successfully.');
+
+                    document.getElementById('currentPin').value = "";
+                    document.getElementById('newPin').value = "";
+                    document.getElementById('confirmPin').value = "";
+                }
+            } catch (err) {
+                console.error(err);
+                showDialog('error', 'Uh oh!', 'Something went wrong while saving. Try again.');
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "Save Changes";
+            }
+        }
+
+        // Enter key shortcuts
+        document.getElementById('loginPin').addEventListener('keypress', (e) => { if (e.key === 'Enter') handleLogin(); });
+        document.getElementById('loginName').addEventListener('keypress', (e) => { if (e.key === 'Enter') document.getElementById('loginPin').focus(); });
+    </script>
+</body>
+</html>

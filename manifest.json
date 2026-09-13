@@ -1,0 +1,41 @@
+{
+  "name": "Shiqela Online",
+  "short_name": "Shiqela",
+  "description": "Your complete platform for shiqela.online",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#4f46e5",
+  "lang": "en-US",
+  "icons": [
+    {
+      "src": "/s.png",
+      "sizes": "192x192 512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/s.png",
+      "sizes": "192x192 512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Home",
+      "short_name": "Home",
+      "description": "Go to main page",
+      "url": "/",
+      "icons": [
+        {
+          "src": "/s.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ]
+}

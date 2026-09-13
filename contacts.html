@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>App 2 - Admin Control Center</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-color: #F7F9FC;
+            --surface-color: #FFFFFF;
+            --text-main: #111827;
+            --text-soft: #6B7280;
+            --primary: #3B82F6;
+            --primary-hover: #2563EB;
+            --primary-light: #EFF6FF;
+            --border-color: #E5E7EB;
+            --input-bg: #F9FAFB;
+            --success: #10B981;
+            --danger: #EF4444;
+            --radius-lg: 24px;
+            --radius-md: 16px;
+            --radius-sm: 12px;
+            --shadow-soft: 0 10px 40px -10px rgba(0, 0, 0, 0.08);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            background-image: 
+                radial-gradient(at 10% 0%, rgba(59, 130, 246, 0.08) 0px, transparent 50%),
+                radial-gradient(at 90% 100%, rgba(16, 185, 129, 0.05) 0px, transparent 50%);
+            background-attachment: fixed;
+            padding-bottom: 40px;
+        }
+
+        /* Clean Header */
+        .nav-header {
+            background: var(--surface-color);
+            border-bottom: 1px solid var(--border-color);
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            z-index: 50;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+        }
+
+        .header-title-text {
+            font-size: 18px;
+            font-weight: 800;
+            color: var(--text-main);
+        }
+
+        .back-btn {
+            color: var(--text-main);
+            margin-right: 16px;
+            display: flex;
+            align-items: center;
+            background: var(--input-bg);
+            padding: 8px;
+            border-radius: 10px;
+            transition: all 0.2s;
+        }
+        
+        .back-btn:hover { background: #E5E7EB; }
+
+        .app-content {
+            padding-top: 100px;
+            max-width: 600px;
+            margin: 0 auto;
+            padding-left: 20px;
+            padding-right: 20px;
+        }
+
+        /* Humanized Cards */
+        .page-content-card { 
+            background: var(--surface-color); 
+            border-radius: var(--radius-lg); 
+            padding: 28px; 
+            margin-bottom: 24px; 
+            border: 1px solid rgba(255, 255, 255, 0.8); 
+            box-shadow: var(--shadow-soft); 
+        }
+
+        .admin-section-title { 
+            color: var(--text-main); 
+            font-size: 20px; 
+            font-weight: 800; 
+            margin-bottom: 8px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: space-between; 
+            border-bottom: 1px solid #F3F4F6; 
+            padding-bottom: 16px; 
+        }
+        
+        .section-desc { color: var(--text-soft); font-size: 14px; margin-bottom: 24px; margin-top: 16px; line-height: 1.5; }
+
+        .input-group { margin-bottom: 20px; }
+        .input-group label { display: block; color: var(--text-main); font-size: 14px; font-weight: 700; margin-bottom: 8px; margin-left: 4px; }
+        
+        .form-control { 
+            width: 100%; 
+            background: var(--input-bg); 
+            border: 2px solid transparent; 
+            border-radius: var(--radius-sm); 
+            padding: 14px 16px; 
+            color: var(--text-main); 
+            font-size: 15px; 
+            outline: none; 
+            transition: all 0.2s ease; 
+        }
+        .form-control:focus { background: var(--surface-color); border-color: var(--primary); box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1); }
+        .form-control::placeholder { color: #9CA3AF; }
+        textarea.form-control { resize: vertical; min-height: 120px; }
+        
+        .admin-btn { 
+            width: 100%; 
+            background: var(--primary); 
+            color: white; 
+            border: none; 
+            padding: 16px; 
+            border-radius: var(--radius-sm); 
+            font-size: 15px; 
+            font-weight: 700; 
+            cursor: pointer; 
+            transition: all 0.2s ease;
+            display: flex; justify-content: center; align-items: center; gap: 8px;
+        }
+        .admin-btn:hover { background: var(--primary-hover); transform: translateY(-2px); box-shadow: 0 8px 16px rgba(59, 130, 246, 0.2); }
+        .admin-btn:active { transform: translateY(0); }
+        .admin-btn:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
+        
+        .admin-btn.success { background: var(--success); }
+        .admin-btn.success:hover { background: #059669; box-shadow: 0 8px 16px rgba(16, 185, 129, 0.2); }
+
+        .status-badge { background: var(--primary-light); color: var(--primary); padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; }
+
+        /* Custom Select Trigger */
+        .select-trigger { display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none; }
+        .select-trigger .placeholder-text { color: #9CA3AF; }
+
+        /* Friendly Modal Overlay */
+        .custom-modal {
+            display: none; position: fixed; inset: 0; background: rgba(17, 24, 39, 0.4);
+            backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+            z-index: 1000; align-items: center; justify-content: center; padding: 20px;
+            opacity: 0; transition: opacity 0.3s ease;
+        }
+        .custom-modal.active { display: flex; opacity: 1; }
+
+        .modal-card {
+            background: var(--surface-color); border-radius: var(--radius-lg); width: 100%; max-width: 400px;
+            padding: 28px 24px; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            transform: scale(0.95) translateY(10px); transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .custom-modal.active .modal-card { transform: scale(1) translateY(0); }
+
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .modal-title { font-size: 18px; font-weight: 800; color: var(--text-main); margin: 0; }
+        
+        .modal-close { background: var(--input-bg); border: none; color: var(--text-soft); cursor: pointer; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; transition: background 0.2s; }
+        .modal-close:hover { background: #E5E7EB; color: var(--text-main); }
+
+        .options-list { display: flex; flex-direction: column; gap: 8px; max-height: 60vh; overflow-y: auto;}
+        .option-item { padding: 14px 16px; background: var(--input-bg); border: 2px solid transparent; border-radius: var(--radius-sm); color: var(--text-main); font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; }
+        .option-item:hover { background: #F3F4F6; }
+        .option-item.selected { background: var(--primary-light); color: var(--primary); border-color: var(--primary); }
+
+        /* Status Dialog */
+        .status-content { text-align: center; }
+        .status-icon { width: 56px; height: 56px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; margin: 0 auto 16px; }
+        .status-icon.success { background: #D1FAE5; color: var(--success); }
+        .status-icon.error { background: #FEE2E2; color: var(--danger); }
+        .status-message { color: var(--text-soft); font-size: 14px; margin-bottom: 24px; line-height: 1.5; }
+
+        /* Messages UI */
+        .messages-list-container { display: flex; flex-direction: column; gap: 16px; margin-top: 16px; }
+        .message-card {
+            background: var(--input-bg);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .message-card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+        .user-info { display: flex; flex-direction: column; gap: 2px; }
+        .user-name { color: var(--text-main); font-weight: 800; font-size: 15px; }
+        .user-email { color: var(--primary); font-size: 13px; font-weight: 500; text-decoration: none; }
+        .message-subject-badge { background: #E0E7FF; color: #4338CA; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 8px; }
+        
+        .message-body { background: var(--surface-color); padding: 16px; border-radius: var(--radius-sm); color: var(--text-main); font-size: 14px; line-height: 1.6; white-space: pre-wrap; border: 1px solid var(--border-color); }
+        
+        .message-footer { display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-weight: 600; color: var(--text-soft); }
+        .delete-msg-btn { background: transparent; color: var(--danger); border: none; font-size: 13px; font-weight: 700; cursor: pointer; transition: opacity 0.2s; }
+        .delete-msg-btn:hover { opacity: 0.7; text-decoration: underline; }
+        
+        .no-messages { text-align: center; color: var(--text-soft); font-size: 14px; font-weight: 600; padding: 30px 0; background: var(--input-bg); border-radius: var(--radius-md); border: 2px dashed var(--border-color); }
+    </style>
+</head>
+<body>
+    <div class="app-view">
+        <header class="nav-header">
+            <a href="index.html" class="back-btn" aria-label="Go Back">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
+            </a>
+            <h1 class="header-title-text">App 2 Admin Control</h1>
+        </header>
+
+        <main class="app-content">
+            
+            <!-- 1. Manage Social Links -->
+            <div class="page-content-card">
+                <div class="admin-section-title">
+                    <span>Manage Support Links</span>
+                    <span class="status-badge">Live Sync</span>
+                </div>
+                <p class="section-desc">Update the social and contact links displayed on the frontend interface for users.</p>
+
+                <form id="socialLinksForm">
+                    <div class="input-group">
+                        <label for="adminTelegram">Telegram Channel Link</label>
+                        <input type="url" id="adminTelegram" class="form-control" placeholder="https://t.me/..." required>
+                    </div>
+
+                    <div class="input-group">
+                        <label for="adminInstagram">Instagram Profile Link</label>
+                        <input type="url" id="adminInstagram" class="form-control" placeholder="https://instagram.com/..." required>
+                    </div>
+
+                    <div class="input-group">
+                        <label for="adminGmail">Support Email Address</label>
+                        <input type="email" id="adminGmail" class="form-control" placeholder="support@domain.com" required>
+                    </div>
+
+                    <button type="submit" id="saveLinksBtn" class="admin-btn success">Save Contact Links</button>
+                </form>
+            </div>
+
+            <!-- 2. Post Daily Content -->
+            <div class="page-content-card">
+                <div class="admin-section-title">
+                    <span>Publish Daily Post</span>
+                    <span class="status-badge">App 2 Feed</span>
+                </div>
+                <p class="section-desc">Create your daily post targeting jobs, business tips, or tech advice for the isolated feed.</p>
+
+                <form id="dailyPostForm">
+                    <div class="input-group">
+                        <label>Category / Pillar</label>
+                        <div id="categoryTrigger" class="form-control select-trigger">
+                            <span id="selectedCategoryText" class="placeholder-text">Select post category...</span>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                        </div>
+                        <input type="hidden" id="postCategory" name="postCategory" required>
+                    </div>
+
+                    <div class="input-group">
+                        <label for="postTitle">Post Headline</label>
+                        <input type="text" id="postTitle" class="form-control" placeholder="e.g. Remote Job Opportunity" required>
+                    </div>
+
+                    <div class="input-group">
+                        <label for="postCode">Unique Search Code</label>
+                        <input type="text" id="postCode" class="form-control" placeholder="e.g. SKL-001" required>
+                    </div>
+
+                    <div class="input-group">
+                        <label for="postContent">Full Post Content</label>
+                        <textarea id="postContent" class="form-control" placeholder="Write full details, instructions, and links here..." required></textarea>
+                    </div>
+
+                    <button type="submit" id="publishBtn" class="admin-btn">Publish to Database</button>
+                </form>
+            </div>
+
+            <!-- 3. Read User Submitted Messages -->
+            <div class="page-content-card">
+                <div class="admin-section-title">
+                    <span>User Support Messages</span>
+                    <span class="status-badge" style="background: #E0E7FF; color: #4338CA;" id="messagesCount">0 Messages</span>
+                </div>
+                <p class="section-desc">Read and resolve inquiries submitted by App 2 users through the contact form.</p>
+
+                <div id="messagesList" class="messages-list-container">
+                    <div class="no-messages">Loading messages...</div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Category Picker Modal -->
+    <div id="categoryModal" class="custom-modal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3 class="modal-title">Select Category</h3>
+                <button type="button" class="modal-close" id="closeCategoryModal">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+            <div class="options-list">
+                <div class="option-item" data-value="Online Update">Online Update (Jobs)</div>
+                <div class="option-item" data-value="Online Tips">Online Tips</div>
+                <div class="option-item" data-value="Shikela Update">Shikela Update</div>
+                <div class="option-item" data-value="Shikela Tips">Shikela Tips</div>
+                <div class="option-item" data-value="Tech Update">Tech Update</div>
+                <div class="option-item" data-value="Tech Tips">Tech Tips</div>
+                <div class="option-item" data-value="Social Media">Social Media</div>
+                <div class="option-item" data-value="Entertainment">Entertainment</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Friendly Status Alert Modal -->
+    <div id="statusModal" class="custom-modal">
+        <div class="modal-card" style="max-width: 340px; text-align: center;">
+            <div class="status-content">
+                <div id="statusIcon" class="status-icon"></div>
+                <h3 id="statusTitle" class="modal-title" style="margin-bottom: 8px;">Notice</h3>
+                <div id="statusMessage" class="status-message"></div>
+                <button type="button" id="closeStatusBtn" class="admin-btn" style="background: var(--input-bg); color: var(--text-main);">Got it</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase Script -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, set, get, push, child, onValue, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+        // ==========================================
+        // 🔴 APP 2 ISOLATION CONFIGURATION
+        // ==========================================
+        const APP_NODE = "app10";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCqwgwiukwKb7o6gwnaLoPQSWc7BfMDuYQ",
+            authDomain: "besuad.firebaseapp.com",
+            databaseURL: "https://besuad-default-rtdb.firebaseio.com",
+            projectId: "besuad",
+            storageBucket: "besuad.firebasestorage.app",
+            messagingSenderId: "641705823615",
+            appId: "1:641705823615:web:6502b2511ff8c0f251de4a",
+            measurementId: "G-2YSX71N08Q"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+
+        // Status Modal Trigger
+        const statusModal = document.getElementById('statusModal');
+        const statusIcon = document.getElementById('statusIcon');
+        const statusTitle = document.getElementById('statusTitle');
+        const statusMessage = document.getElementById('statusMessage');
+        const closeStatusBtn = document.getElementById('closeStatusBtn');
+
+        function showStatusModal(type, title, message) {
+            statusTitle.textContent = title;
+            statusMessage.textContent = message;
+
+            if (type === 'success') {
+                statusIcon.className = 'status-icon success';
+                statusIcon.innerHTML = `✓`;
+            } else {
+                statusIcon.className = 'status-icon error';
+                statusIcon.innerHTML = `!`;
+            }
+            statusModal.classList.add('active');
+        }
+
+        closeStatusBtn.addEventListener('click', () => { statusModal.classList.remove('active'); });
+
+        // Category Picker Logic
+        const categoryTrigger = document.getElementById('categoryTrigger');
+        const categoryModal = document.getElementById('categoryModal');
+        const closeCategoryModal = document.getElementById('closeCategoryModal');
+        const selectedCategoryText = document.getElementById('selectedCategoryText');
+        const hiddenCategoryInput = document.getElementById('postCategory');
+        const optionItems = document.querySelectorAll('.option-item');
+
+        categoryTrigger.addEventListener('click', () => { categoryModal.classList.add('active'); });
+        closeCategoryModal.addEventListener('click', () => { categoryModal.classList.remove('active'); });
+
+        optionItems.forEach(item => {
+            item.addEventListener('click', () => {
+                hiddenCategoryInput.value = item.getAttribute('data-value');
+                selectedCategoryText.textContent = item.textContent;
+                selectedCategoryText.classList.remove('placeholder-text');
+                selectedCategoryText.style.color = 'var(--text-main)';
+
+                optionItems.forEach(i => i.classList.remove('selected'));
+                item.classList.add('selected');
+                categoryModal.classList.remove('active');
+            });
+        });
+
+        // Load App 2 Social Links
+        const dbRef = ref(database);
+        get(child(dbRef, `${APP_NODE}/social_links`)).then((snapshot) => {
+            if (snapshot.exists()) {
+                const data = snapshot.val();
+                if (data.telegram) document.getElementById('adminTelegram').value = data.telegram;
+                if (data.instagram) document.getElementById('adminInstagram').value = data.instagram;
+                if (data.email) document.getElementById('adminGmail').value = data.email;
+            }
+        }).catch((error) => console.error("Error loading links:", error));
+
+        // 1. Update App 2 Social Links
+        document.getElementById('socialLinksForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('saveLinksBtn');
+            btn.disabled = true;
+            btn.textContent = 'Updating...';
+
+            try {
+                await set(ref(database, `${APP_NODE}/social_links`), {
+                    telegram: document.getElementById('adminTelegram').value,
+                    instagram: document.getElementById('adminInstagram').value,
+                    email: document.getElementById('adminGmail').value
+                });
+                showStatusModal('success', 'Links Saved', 'Social contact links updated successfully!');
+            } catch (error) {
+                showStatusModal('error', 'Update Failed', 'Failed to update links: ' + error.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Save Contact Links';
+            }
+        });
+
+        // 2. Publish App 2 Daily Post
+        document.getElementById('dailyPostForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            if (!hiddenCategoryInput.value) {
+                showStatusModal('error', 'Required Field', 'Please select a post category before publishing.');
+                return;
+            }
+
+            const btn = document.getElementById('publishBtn');
+            btn.disabled = true;
+            btn.textContent = 'Publishing...';
+            
+            const now = Date.now();
+            const dateStr = new Date().toISOString().split('T')[0];
+
+            try {
+                const newPostRef = push(ref(database, `${APP_NODE}/shikelaNews`));
+                await set(newPostRef, {
+                    category: hiddenCategoryInput.value,
+                    title: document.getElementById('postTitle').value,
+                    newsTitle: document.getElementById('postTitle').value,
+                    code: document.getElementById('postCode').value,
+                    newsCode: document.getElementById('postCode').value,
+                    content: document.getElementById('postContent').value,
+                    timestamp: now,
+                    updatedAt: now,
+                    createdAtTimestamp: now,
+                    date: dateStr
+                });
+
+                showStatusModal('success', 'Post Published', 'Daily post published successfully!');
+                document.getElementById('dailyPostForm').reset();
+                selectedCategoryText.textContent = 'Select post category...';
+                selectedCategoryText.classList.add('placeholder-text');
+                hiddenCategoryInput.value = '';
+                optionItems.forEach(i => i.classList.remove('selected'));
+            } catch (error) {
+                showStatusModal('error', 'Publish Failed', 'Failed to publish post: ' + error.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Publish to Database';
+            }
+        });
+
+        // 3. Read App 2 User Messages
+        const messagesRef = ref(database, `${APP_NODE}/messages`);
+        const messagesList = document.getElementById('messagesList');
+        const messagesCount = document.getElementById('messagesCount');
+
+        onValue(messagesRef, (snapshot) => {
+            messagesList.innerHTML = '';
+            
+            if (snapshot.exists()) {
+                const data = snapshot.val();
+                const entries = Object.entries(data);
+                
+                messagesCount.textContent = `${entries.length} Message${entries.length > 1 ? 's' : ''}`;
+                entries.sort((a, b) => new Date(b[1].timestamp || 0) - new Date(a[1].timestamp || 0));
+
+                entries.forEach(([key, msg]) => {
+                    const card = document.createElement('div');
+                    card.className = 'message-card';
+                    
+                    const formattedDate = msg.timestamp ? new Date(msg.timestamp).toLocaleString() : 'Unknown Date';
+
+                    card.innerHTML = `
+                        <div class="message-card-header">
+                            <div class="user-info">
+                                <span class="user-name">${escapeHtml(msg.name || 'Anonymous User')}</span>
+                                <a href="mailto:${escapeHtml(msg.email || '')}" class="user-email">${escapeHtml(msg.email || 'No email provided')}</a>
+                            </div>
+                            <span class="message-subject-badge">${escapeHtml(msg.subject || 'General')}</span>
+                        </div>
+                        <div class="message-body">${escapeHtml(msg.message || '')}</div>
+                        <div class="message-footer">
+                            <span>Sent: ${formattedDate}</span>
+                            <button class="delete-msg-btn" data-id="${key}">Delete</button>
+                        </div>
+                    `;
+                    messagesList.appendChild(card);
+                });
+
+                document.querySelectorAll('.delete-msg-btn').forEach(btn => {
+                    btn.addEventListener('click', async (e) => {
+                        const msgId = e.target.getAttribute('data-id');
+                        try {
+                            await remove(ref(database, `${APP_NODE}/messages/${msgId}`));
+                        } catch (err) {
+                            showStatusModal('error', 'Delete Failed', 'Could not remove message: ' + err.message);
+                        }
+                    });
+                });
+
+            } else {
+                messagesCount.textContent = '0 Messages';
+                messagesList.innerHTML = '<div class="no-messages">No user messages found in database.</div>';
+            }
+        }, (error) => {
+            messagesList.innerHTML = `<div class="no-messages" style="color: #ef4444;">Error loading messages: ${error.message}</div>`;
+        });
+
+        function escapeHtml(text) {
+            return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+    </script>
+</body>
+</html>

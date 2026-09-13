@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Fira Tech | Full Article</title>
+    <link rel="stylesheet" href="news.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        /* Specific overrides for single page article view */
+        body { padding-bottom: 70px; background: #081B38; }
+        .full-article-container { padding: 20px; background: #ffffff; min-height: 100vh; border-top-left-radius: 20px; border-top-right-radius: 20px; margin-top: 10px; }
+        .news-reader-header { display: flex; align-items: center; justify-content: space-between; padding: 15px 20px; color: white; }
+        .back-btn { background: none; border: none; color: white; cursor: pointer; padding: 5px; display:flex; align-items:center; }
+        
+        .ad-container-wrapper {
+            position: fixed; bottom: 0px; left: 0; width: 100%;
+            display: flex; justify-content: center; pointer-events: none; z-index: 9000;
+        }
+        .admob-preview-banner {
+            width: 320px; height: 50px; background: #f1c40f; color: #000;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            font-size: 13px; font-weight: bold; border: 2px dashed #d35400; border-radius: 4px;
+            box-shadow: 0px -4px 10px rgba(0, 0, 0, 0.1); text-align: center; pointer-events: auto;
+        }
+        
+        .mock-test-ad-block {
+            background: #ffffff; border: 1px solid #e0e0e0; border-radius: 8px;
+            padding: 15px; text-align: center; margin-top: 15px; display: flex;
+            flex-direction: column; align-items: center; justify-content: center;
+            position: relative; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.05); width: 100%;
+        }
+        .mock-test-ad-label {
+            background: #4285f4; color: white; font-size: 10px; padding: 4px 8px;
+            position: absolute; top: 0; left: 0; border-bottom-right-radius: 8px; font-weight: bold; text-transform: uppercase;
+        }
+        .mock-test-ad-title { font-size: 16px; color: #333; margin: 15px 0 5px 0; font-weight: 700; }
+        .mock-test-ad-desc { font-size: 12px; color: #777; margin: 0; word-break: break-all; }
+    </style>
+</head>
+<body>
+    <!-- MANDATORY FOR NATIVE ADS IN APK -->
+    <script src="native-bridge.js"></script>
+
+    <div class="news-reader-header">
+        <button class="back-btn" id="goBackBtn" aria-label="Go Back">
+            <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="19" y1="12" x2="5" y2="12"></line>
+                <polyline points="12 19 5 12 12 5"></polyline>
+            </svg>
+        </button>
+        <h2 style="font-size: 16px; font-weight: 800; margin: 0;">Full Article</h2>
+        <div style="width: 28px;"></div> <!-- Spacer -->
+    </div>
+
+    <div class="full-article-container" id="fullNewsReaderBody">
+        <div style="text-align: center; padding: 40px; color: #666;">
+            Loading article content...
+        </div>
+    </div>
+
+    <!-- AdMob Test Preview Banner Container (Web Editor Only) -->
+    <div class="ad-container-wrapper" id="adContainerWrapper" style="display: none;">
+        <div class="admob-preview-banner" id="admobPreviewBanner">
+            Article Banner Ad Loading...
+        </div>
+    </div>
+
+    <!-- Integrated Module Script for Firebase & Logic -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCqwgwiukwKb7o6gwnaLoPQSWc7BfMDuYQ",
+            authDomain: "besuad.firebaseapp.com",
+            databaseURL: "https://besuad-default-rtdb.firebaseio.com",
+            projectId: "besuad",
+            storageBucket: "besuad.firebasestorage.app",
+            messagingSenderId: "641705823615",
+            appId: "1:641705823615:web:6502b2511ff8c0f251de4a"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        const APP_NODE_NAME = "app1"; 
+
+        window.globalAdConfig = {};
+        let targetItemId = null;
+        let bannerCreated = false;
+
+        function getAdMobPlugin() { return window.AdMobPlugin || null; }
+        function isNativeApp() {
+            if (typeof window === 'undefined' || !window.Capacitor) return false;
+            if (typeof window.Capacitor.isNativePlatform === 'function') return window.Capacitor.isNativePlatform();
+            return false;
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            targetItemId = urlParams.get('id');
+            
+            if (!targetItemId) {
+                document.getElementById('fullNewsReaderBody').innerHTML = "<h3 style='text-align:center;'>Article not found.</h3>";
+                return;
+            }
+
+            setupBackButton();
+            fetchAdMobUnitsAndContent();
+            setupScrollRepositioning();
+        });
+
+        function setupBackButton() {
+            document.getElementById('goBackBtn').addEventListener('click', async () => {
+                const AdPlugin = getAdMobPlugin();
+                // Clean up ads on exit to prevent overlap
+                if (isNativeApp() && AdPlugin) {
+                    if (AdPlugin.hideBanner) await AdPlugin.hideBanner().catch(e => console.log(e));
+                    if (AdPlugin.hideNativeAd) await AdPlugin.hideNativeAd().catch(e => console.log(e));
+                }
+                window.location.href = 'index.html';
+            });
+        }
+
+        function getNativeAdHTML(title = "AdMob Native Placement") {
+            const adId = window.globalAdConfig?.nativeId || 'Loading...';
+            return `
+                <div class="mock-test-ad-block" style="min-height: 120px; background: #fdfdfd;">
+                    <span class="mock-test-ad-label">WEB MOCK AD</span>
+                    <div style="font-size:24px; margin-top:10px;">💡</div>
+                    <div class="mock-test-ad-title">${title}</div>
+                    <p class="mock-test-ad-desc">Real ad will load in APK using ID: ${adId}</p>
+                </div>
+            `;
+        }
+
+        function fetchAdMobUnitsAndContent() {
+            const adManagerRef = ref(db, `${APP_NODE_NAME}/adManager`);
+            onValue(adManagerRef, (snapshot) => {
+                if (snapshot.exists()) {
+                    const adData = snapshot.val();
+                    window.globalAdConfig = {
+                        status: String(adData.adStatus).toUpperCase() === 'TRUE' || String(adData.adStatus).toUpperCase() === 'ON',
+                        bannerId: adData.adMobBannerUnitId,
+                        nativeId: adData.adMobNativeUnitId,
+                        placements: adData.placements || {}
+                    };
+                    
+                    fetchTargetArticle(); // Fetch article once config is loaded
+
+                    if (!window.globalAdConfig.status) return;
+                    
+                    const AdPlugin = getAdMobPlugin();
+                    if (isNativeApp() && AdPlugin) {
+                        (async () => {
+                            try {
+                                if (AdPlugin.requestConsentInfo) await AdPlugin.requestConsentInfo({ showFormIfRequired: true });
+                                await AdPlugin.initialize({ isTesting: false });
+                                triggerBannerAdArticlePage();
+                            } catch (e) { console.log("AdMob Init Error", e); }
+                        })();
+                    } else {
+                        triggerBannerAdArticlePage();
+                    }
+                }
+            });
+        }
+
+        async function triggerBannerAdArticlePage() {
+            const adWrapper = document.getElementById('adContainerWrapper');
+            // Referencing 'Banner Ad on Post Details' from 45724.jpg
+            if (!window.globalAdConfig?.placements?.bannerAdPostDetails || !window.globalAdConfig?.bannerId) {
+                if (isNativeApp()) {
+                    const AdPlugin = getAdMobPlugin();
+                    if (AdPlugin?.hideBanner) await AdPlugin.hideBanner().catch(() => {});
+                } else { adWrapper.style.display = 'none'; }
+                return;
+            }
+
+            const AdPlugin = getAdMobPlugin();
+            if (isNativeApp() && AdPlugin) {
+                try {
+                    if (!bannerCreated) {
+                        await AdPlugin.createBanner({ 
+                            adUnitId: window.globalAdConfig.bannerId, 
+                            isAutoShow: true, position: 'BOTTOM', adSize: 'BANNER', isOverlap: true 
+                        });
+                        bannerCreated = true;
+                    } else if (AdPlugin.showBanner) { await AdPlugin.showBanner(); }
+                } catch (e) { console.error("Banner Ad Failed:", e); }
+            } else {
+                adWrapper.style.display = 'flex';
+                document.getElementById('admobPreviewBanner').innerHTML = `Article Banner Ad<br><span style="font-size:10px;">DB ID: ${window.globalAdConfig.bannerId}</span>`;
+            }
+        }
+
+        function fetchTargetArticle() {
+            let itemFound = false;
+
+            const checkData = (snapshot) => {
+                if (itemFound) return;
+                const data = snapshot.val();
+                if (data && data[targetItemId]) {
+                    itemFound = true;
+                    renderArticle(data[targetItemId]);
+                }
+            };
+
+            onValue(ref(db, `${APP_NODE_NAME}/shikelaNews`), checkData);
+            onValue(ref(db, `${APP_NODE_NAME}/newNews`), (snap) => {
+                if(!itemFound) checkData(snap);
+                if(!itemFound) document.getElementById('fullNewsReaderBody').innerHTML = "<h3 style='text-align:center;'>Article not found.</h3>";
+            });
+        }
+
+        function getYouTubeEmbedUrl(url) {
+            if (!url) return null;
+            const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+            const match = String(url).trim().match(regExp);
+            return (match && match[2].length === 11) ? `https://www.youtube.com/embed/${match[2]}` : null;
+        }
+
+        function renderArticle(item) {
+            const readerBody = document.getElementById('fullNewsReaderBody');
+            const AdPlugin = getAdMobPlugin();
+
+            const headline = item.title || item.newsTitle;
+            const fullContent = item.content || item.message || "";
+            const displayCategory = item.category || "Fira Tech";
+            const imageUrl = item.imageUrl || item.image || "";
+            const videoUrl = item.videoUrl || item.youtubeUrl || item.youtubeId || item.video || "";
+            const targetRedirectUrl = item.link || item.redirectUrl || item.url || item.targetUrl || "";
+            const customActionLabel = item.actionButtonLabel || item.actionLabel || "Visit External Source / Link";
+            const pillBadgeClass = displayCategory.toLowerCase().includes("tips") ? "spotlight-pill system-badge" : "spotlight-pill";
+
+            let imageHTML = (imageUrl && Boolean(item.duplicateCoverInArticle ?? true)) 
+                ? `<div class="reader-image-frame"><img src="${imageUrl.trim()}" alt="${headline}" style="width:100%; border-radius:12px;"></div>` : "";
+
+            let videoHTML = "";
+            const embedUrl = getYouTubeEmbedUrl(videoUrl);
+            if (embedUrl) videoHTML = `<div class="reader-video-container" style="margin-top:15px;"><iframe src="${embedUrl}" allowfullscreen style="width:100%; height:200px; border-radius:12px; border:none;"></iframe></div>`;
+
+            let redirectBtnHTML = targetRedirectUrl 
+                ? `<div style="margin-top:20px;"><a href="${targetRedirectUrl}" target="_blank" class="redirect-link-btn" style="width:100%; display:block; text-align:center; padding:12px; background:#2563eb; color:white; border-radius:8px; font-weight:bold; text-decoration:none;"><span>${customActionLabel}</span></a></div>` : "";
+
+            // NATIVE AD: Inserted securely placed between Article Text and the Action Button
+            const articleNativeAdId = 'article-native-ad';
+            let articleNativeAdHtml = `<div id="${articleNativeAdId}" class="native-ad-placeholder" style="width:100%; height:120px; margin: 25px 0; background: transparent;"></div>`;
+
+            readerBody.innerHTML = `
+                <div class="reader-meta-bar" style="margin-bottom:15px;">
+                    <span class="${pillBadgeClass}" style="text-transform: uppercase;">${displayCategory}</span>
+                </div>
+                <h1 class="reader-title" style="font-size:22px; font-weight:800; margin-bottom:15px;">${headline}</h1>
+                ${imageHTML}
+                ${videoHTML}
+                <div class="reader-full-body" style="margin-top:20px; line-height:1.6; color:#333;">${fullContent}</div>
+                
+                ${articleNativeAdHtml} 
+                
+                ${redirectBtnHTML}
+            `;
+
+            // Referencing 'Native Ad on Post Details' from 45724.jpg
+            if (window.globalAdConfig?.placements?.nativeAdPostDetails && window.globalAdConfig?.nativeId) {
+                if (isNativeApp() && AdPlugin) {
+                    setTimeout(() => updateAllNativeAdsPositions(), 350);
+                } else {
+                    document.getElementById(articleNativeAdId).innerHTML = getNativeAdHTML("In-Article Web Mock Ad");
+                }
+            }
+        }
+
+        function setupScrollRepositioning() {
+            let ticking = false;
+            const updateAds = () => {
+                if (!ticking) {
+                    window.requestAnimationFrame(() => { updateAllNativeAdsPositions(); ticking = false; });
+                    ticking = true;
+                }
+            };
+            window.addEventListener('scroll', updateAds, { passive: true });
+        }
+
+        function updateAllNativeAdsPositions() {
+            const AdPlugin = getAdMobPlugin();
+            if (!isNativeApp() || !AdPlugin || !AdPlugin.showNativeAd) return;
+            const adElements = document.querySelectorAll('.native-ad-placeholder');
+            
+            adElements.forEach(el => {
+                if (el.offsetParent === null) return; 
+                const rect = el.getBoundingClientRect();
+                const bannerHeight = window.globalAdConfig?.placements?.bannerAdPostDetails ? 60 : 0;
+                
+                if (rect.bottom > 0 && rect.top < (window.innerHeight - bannerHeight)) {
+                    AdPlugin.showNativeAd({ adId: el.id, adUnitId: window.globalAdConfig.nativeId, template: "small", x: rect.left, y: rect.top, width: rect.width, height: 120 }).catch(() => {});
+                }
+            });
+        }
+    </script>
+</body>
+</html>
