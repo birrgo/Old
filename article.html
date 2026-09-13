@@ -103,7 +103,6 @@
 <body>
     <script src="native-bridge.js"></script>
 
-    <!-- Appears exactly identical visually using active-reader class and overridden transform rule -->
     <div class="full-news-modal-overlay active-reader" id="fullNewsModalOverlay" style="transform: translateY(0); transition: none;">
         <div class="news-reader-header">
             <h2 style="font-size: 16px; font-weight: 800; color: var(--text-dark);">Article Details</h2>
@@ -111,8 +110,8 @@
                 <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
             </button>
         </div>
-        <!-- Ensure this container triggers our scroll listener -->
-        <div class="news-reader-content" id="fullNewsReaderBody"></div>
+        <!-- padding-bottom added inline here to ensure there's enough physical scroll room at the very bottom -->
+        <div class="news-reader-content" id="fullNewsReaderBody" style="padding-bottom: 120px;"></div>
     </div>
 
     <!-- Popup for notifications when using duplicate code -->
@@ -129,7 +128,6 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, onValue, set, push } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-        // Firebase for enabling duplicate as admin feature and reading ad variables
         const firebaseConfig = {
             apiKey: "AIzaSyCqwgwiukwKb7o6gwnaLoPQSWc7BfMDuYQ",
             authDomain: "besuad.firebaseapp.com",
@@ -215,8 +213,7 @@
             }
         }
 
-        // WebView Scroll Synchronization Logic
-        // Continuously pushes new X/Y coords to the native bridge on scroll so it perfectly sticks to the web layout
+        // SCROLL SYNCHRONIZATION: This continuously pushes X/Y coords to the native bridge on scroll so it perfectly sticks to the web layout
         function setupScrollSynchronization() {
             const scrollContainer = document.getElementById('fullNewsReaderBody');
             if (!scrollContainer) return;
@@ -230,7 +227,6 @@
                     const el = document.getElementById(activeNativeAdId);
                     if (el) {
                         const rect = el.getBoundingClientRect();
-                        // Only update position if it's generally visible to save bridge performance
                         if (rect.bottom > 0 && rect.top < window.innerHeight) {
                             const templateType = activeNativeAdId.includes('bottom') ? 'medium' : 'small';
                             getAdMobPlugin().showNativeAd({
@@ -256,7 +252,6 @@
                 const visibleEntries = entries.filter(entry => entry.isIntersecting);
                 
                 if (visibleEntries.length > 0) {
-                    // Show the one that just entered view
                     const latestEntry = visibleEntries[visibleEntries.length - 1];
                     showNativeAdForSlot(latestEntry.target);
                 } else {
@@ -266,7 +261,7 @@
                         }
                     });
                 }
-            }, { threshold: 0.1 });
+            }, { threshold: 0.05 }); // Lowered threshold to trigger faster and keep the ad alive smoothly during scrolling
 
             const topAd = document.getElementById('article-native-top');
             const bottomAd = document.getElementById('article-native-bottom');
@@ -388,9 +383,12 @@
             let adminDuplicateBtnReader = "";
             if (isAdminMode) adminDuplicateBtnReader = `<button class="admin-duplicate-btn" style="margin-bottom: 12px; width: 100%;" onclick="duplicateAsAdmin()">📋 Duplicate Article Entry</button>`;
 
-            // Correctly sized native ad placeholders with fixed heights corresponding to small (100px) and medium (350px) templates so they fit perfectly.
-            let topNativeAdHTML = `<div id="article-native-top" class="native-ad-placeholder" style="height: 100px; min-height: 100px; margin-bottom: 16px; width: 100%; max-width: 100%; display: block; box-sizing: border-box; border-radius: 8px;"></div>`;
-            let bottomNativeAdHTML = `<div id="article-native-bottom" class="native-ad-placeholder" style="height: 350px; min-height: 350px; margin-top: 24px; width: 100%; max-width: 100%; display: block; box-sizing: border-box; border-radius: 8px;"></div>`;
+            // FORCING NO OVERLAPS & PERFECT SIZING:
+            // 1. Top Ad height restricted to 110px.
+            // 2. Bottom Ad height pushed to 350px for Medium template.
+            // 3. Bottom Ad has "margin-bottom: 120px;" - This absolutely guarantees the native ad is placed above the bottom banner's footprint.
+            let topNativeAdHTML = `<div id="article-native-top" class="native-ad-placeholder" style="height: 110px; min-height: 110px; margin-bottom: 16px; width: 100%; display: block; box-sizing: border-box; border-radius: 8px;"></div>`;
+            let bottomNativeAdHTML = `<div id="article-native-bottom" class="native-ad-placeholder" style="height: 350px; min-height: 350px; margin-top: 24px; margin-bottom: 120px; width: 100%; display: block; box-sizing: border-box; border-radius: 8px;"></div>`;
 
             readerBody.innerHTML = `
                 ${adminDuplicateBtnReader}
