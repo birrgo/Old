@@ -111,6 +111,7 @@
                 <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
             </button>
         </div>
+        <!-- Ensure this container triggers our scroll listener -->
         <div class="news-reader-content" id="fullNewsReaderBody"></div>
     </div>
 
@@ -126,7 +127,6 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        // Added onValue to allow fetching AdMob configs
         import { getDatabase, ref, onValue, set, push } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
         // Firebase for enabling duplicate as admin feature and reading ad variables
@@ -147,11 +147,12 @@
         const urlParams = new URLSearchParams(window.location.search);
         const isAdminMode = urlParams.get('admin') === 'true';
 
-        // Variables for AdMob Native Ads Logic
+        // Variables for AdMob Native Ads Logic & Scroll Synchronization
         window.globalAdConfig = {};
         let nativeAdObserver = null;
         let activeNativeAdId = null;
         let nativeAdOperation = Promise.resolve();
+        let scrollSyncFrame = null;
 
         const escapeHTML = s => String(s || "").replace(/[&<>'"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[m]));
 
@@ -182,7 +183,6 @@
             }
         }
 
-        // Setup AdMob logic specifically for the Article Page
         function fetchAdMobUnits() {
             onValue(ref(db, `${APP_NODE_NAME}/adManager`), snapshot => {
                 if (!snapshot.exists()) return;
@@ -197,6 +197,7 @@
                 if (window.globalAdConfig.status) {
                     triggerArticleBottomBanner();
                     setupArticleNativeAdsObserver();
+                    setupScrollSynchronization();
                 }
             });
         }
@@ -205,7 +206,6 @@
             const AdPlugin = getAdMobPlugin();
             if (isNativeApp() && AdPlugin && window.globalAdConfig.bannerId) {
                 try {
-                    // Show banner if already created by main page, or create new if directly accessed
                     await AdPlugin.showBanner();
                 } catch (e) {
                     try {
@@ -215,21 +215,57 @@
             }
         }
 
+        // WebView Scroll Synchronization Logic
+        // Continuously pushes new X/Y coords to the native bridge on scroll so it perfectly sticks to the web layout
+        function setupScrollSynchronization() {
+            const scrollContainer = document.getElementById('fullNewsReaderBody');
+            if (!scrollContainer) return;
+
+            scrollContainer.addEventListener('scroll', () => {
+                if (!activeNativeAdId || !getAdMobPlugin() || !window.globalAdConfig.nativeId) return;
+
+                if (scrollSyncFrame) cancelAnimationFrame(scrollSyncFrame);
+                
+                scrollSyncFrame = requestAnimationFrame(() => {
+                    const el = document.getElementById(activeNativeAdId);
+                    if (el) {
+                        const rect = el.getBoundingClientRect();
+                        // Only update position if it's generally visible to save bridge performance
+                        if (rect.bottom > 0 && rect.top < window.innerHeight) {
+                            const templateType = activeNativeAdId.includes('bottom') ? 'medium' : 'small';
+                            getAdMobPlugin().showNativeAd({
+                                adId: activeNativeAdId,
+                                adUnitId: window.globalAdConfig.nativeId,
+                                template: templateType,
+                                x: Math.round(rect.left),
+                                y: Math.round(rect.top),
+                                width: Math.round(rect.width),
+                                height: Math.round(rect.height)
+                            }).catch(()=>{});
+                        }
+                    }
+                });
+            }, { passive: true });
+        }
+
         function setupArticleNativeAdsObserver() {
             const AdPlugin = getAdMobPlugin();
             if (!isNativeApp() || !AdPlugin || !window.globalAdConfig.nativeId) return;
 
             nativeAdObserver = new IntersectionObserver((entries) => {
-                entries.forEach(entry => {
-                    const element = entry.target;
-                    if (entry.isIntersecting) {
-                        showNativeAdForSlot(element);
-                    } else {
-                        if (activeNativeAdId === element.id) {
+                const visibleEntries = entries.filter(entry => entry.isIntersecting);
+                
+                if (visibleEntries.length > 0) {
+                    // Show the one that just entered view
+                    const latestEntry = visibleEntries[visibleEntries.length - 1];
+                    showNativeAdForSlot(latestEntry.target);
+                } else {
+                    entries.forEach(entry => {
+                        if (!entry.isIntersecting && activeNativeAdId === entry.target.id) {
                             hideCurrentNativeAd();
                         }
-                    }
-                });
+                    });
+                }
             }, { threshold: 0.1 });
 
             const topAd = document.getElementById('article-native-top');
@@ -243,7 +279,7 @@
             if (!element || !element.id || activeNativeAdId === element.id) return;
             
             nativeAdOperation = nativeAdOperation.then(async () => {
-                if (activeNativeAdId) {
+                if (activeNativeAdId && activeNativeAdId !== element.id) {
                     try { await AdPlugin.hideNativeAd(); } catch (_) {}
                     activeNativeAdId = null;
                 }
@@ -251,7 +287,6 @@
                 const rect = element.getBoundingClientRect();
                 if (rect.width <= 0 || rect.height <= 0) return;
 
-                // Determine template based on placement: Top = small, Bottom (250x300 target) = medium
                 const templateType = element.id.includes('bottom') ? 'medium' : 'small'; 
                 
                 try {
@@ -305,7 +340,6 @@
         document.addEventListener('DOMContentLoaded', () => {
             const itemStr = sessionStorage.getItem('shikela_current_article');
             
-            // Redirect back to main if directly accessed without selecting an article
             if (!itemStr) { window.location.href = 's.html'; return; }
             
             const item = JSON.parse(itemStr);
@@ -354,9 +388,9 @@
             let adminDuplicateBtnReader = "";
             if (isAdminMode) adminDuplicateBtnReader = `<button class="admin-duplicate-btn" style="margin-bottom: 12px; width: 100%;" onclick="duplicateAsAdmin()">📋 Duplicate Article Entry</button>`;
 
-            // Inject native ad placeholders directly into the DOM structure
-            let topNativeAdHTML = `<div id="article-native-top" class="native-ad-placeholder" style="margin-bottom: 16px;"></div>`;
-            let bottomNativeAdHTML = `<div id="article-native-bottom" class="native-ad-placeholder" style="height: 300px; min-height: 300px; margin-top: 20px;"></div>`;
+            // Correctly sized native ad placeholders with fixed heights corresponding to small (100px) and medium (350px) templates so they fit perfectly.
+            let topNativeAdHTML = `<div id="article-native-top" class="native-ad-placeholder" style="height: 100px; min-height: 100px; margin-bottom: 16px; width: 100%; max-width: 100%; display: block; box-sizing: border-box; border-radius: 8px;"></div>`;
+            let bottomNativeAdHTML = `<div id="article-native-bottom" class="native-ad-placeholder" style="height: 350px; min-height: 350px; margin-top: 24px; width: 100%; max-width: 100%; display: block; box-sizing: border-box; border-radius: 8px;"></div>`;
 
             readerBody.innerHTML = `
                 ${adminDuplicateBtnReader}
@@ -366,18 +400,16 @@
                 </div>
                 <h1 class="reader-title">${escapeHTML(headline)}</h1>
                 ${imageHTML}
-                ${topNativeAdHTML} <!-- NEW TOP NATIVE AD -->
+                ${topNativeAdHTML}
                 ${videoHTML}
                 <div class="reader-full-body">${fullContent}</div>
                 ${redirectBtnHTML}
-                ${bottomNativeAdHTML} <!-- NEW BOTTOM NATIVE AD (250x300 template mapping) -->
+                ${bottomNativeAdHTML}
             `;
             
-            // Kick off AdMob configurations to bind observers and banner
             fetchAdMobUnits();
         });
         
-        // Hide currently visible native ads before navigating backward to prevent overlapping on main feed
         document.getElementById('closeNewsReaderBtn').addEventListener('click', () => {
             hideCurrentNativeAd().then(() => {
                 window.history.back();
