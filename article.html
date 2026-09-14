@@ -26,8 +26,8 @@
         .bg-wave { position: absolute; left: 0; width: 100%; z-index: 0; pointer-events: none; }
         .bg-wave-top { top: 0; height: 11vh; min-height: 95px; }
         
-        /* Updated Top Header to Dark Blue */
-        .news-reader-header { display: flex; justify-content: space-between; align-items: center; padding: calc(12px + env(safe-area-inset-top)) 16px 12px; background: #081B38; border-bottom: none; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
+        /* REDUCED Top Header Height for wider access */
+        .news-reader-header { display: flex; justify-content: space-between; align-items: center; padding: calc(8px + env(safe-area-inset-top)) 16px 8px; background: #081B38; border-bottom: none; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
         .close-reader-btn { background: none; border: none; cursor: pointer; padding: 8px; }
         .close-reader-btn svg { width: 20px; height: 20px; stroke: #ffffff; stroke-width: 2.5; fill: none; }
         
@@ -106,10 +106,10 @@
         .popup-body-desc { font-size: 13px; font-weight: 500; color: var(--text-muted); line-height: 1.4; margin-bottom: 20px; }
         .popup-dismiss-action { width: 100%; padding: 12px; background: var(--primary-gradient); color: #ffffff; border: none; border-radius: 12px; font-size: 13px; font-weight: 700; cursor: pointer; }
         
-        /* --- FIXED TOP AD STYLES (No Bottom Padding to perfectly fit ad) --- */
+        /* --- FIXED TOP AD STYLES (Tightened and Compacted) --- */
         .fixed-ad-wrapper {
-            padding: 12px 16px;
-            background: #ffffff; /* Match the article body */
+            padding: 8px 12px; /* Tighter padding around the card */
+            background: #ffffff; 
             flex-shrink: 0;
             z-index: 50;
             position: relative;
@@ -118,9 +118,9 @@
         .fixed-ad-card {
             background: #ffffff;
             border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
             border: 1px solid var(--border-light);
-            padding: 12px 12px 0 12px; /* NO BOTTOM PADDING - Snug fit */
+            padding: 8px 8px 0 8px; /* Tighter internal padding, 0 at the bottom */
             width: 100%;
             box-sizing: border-box;
             overflow: hidden; /* Prevent ad overspill */
@@ -128,14 +128,14 @@
         .fixed-ad-badge {
             background: #f1c40f;
             color: #000;
-            font-size: 10px;
+            font-size: 9px; /* Slightly smaller text */
             font-weight: 800;
-            padding: 4px 8px;
+            padding: 3px 6px;
             border-radius: 4px;
             text-transform: uppercase;
             letter-spacing: 0.5px;
             display: inline-block;
-            margin-bottom: 8px;
+            margin-bottom: 4px; /* Much closer to the ad */
         }
     </style>
 </head>
@@ -144,7 +144,7 @@
 
     <div class="full-news-modal-overlay active-reader" id="fullNewsModalOverlay" style="transform: translateY(0); transition: none;">
         
-        <!-- Sticky Header (Dark Blue) -->
+        <!-- Sticky Header (Dark Blue - Reduced Height) -->
         <div class="news-reader-header">
             <h2 style="font-size: 16px; font-weight: 800; color: #ffffff;">Article Details</h2>
             <button class="close-reader-btn" id="closeNewsReaderBtn" aria-label="Close Reader">
@@ -152,11 +152,12 @@
             </button>
         </div>
 
-        <!-- NEW FIXED AD SECTION -->
+        <!-- NEW FIXED AD SECTION (Tightened) -->
         <div class="fixed-ad-wrapper">
             <div class="fixed-ad-card">
                 <div class="fixed-ad-badge">ADVERTISEMENT</div>
-                <div id="article-native-fixed" class="native-ad-placeholder" style="height: 120px; width: 100%; border-radius: 8px;"></div>
+                <!-- Reduced height to 100px so it perfectly matches the ad content without bottom gap -->
+                <div id="article-native-fixed" class="native-ad-placeholder" style="height: 100px; width: 100%; border-radius: 8px;"></div>
             </div>
         </div>
 
