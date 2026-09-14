@@ -16,7 +16,6 @@
             --bg-light: #f8fafc;
             --border-light: #e2e8f0;
             --card-shadow: 0 6px 20px -4px rgba(0, 0, 0, 0.04), 0 2px 8px -2px rgba(0, 0, 0, 0.02);
-            /* New variable to explicitly handle Android bottom nav bars */
             --safe-nav-height: calc(env(safe-area-inset-bottom, 0px) + 24px);
         }
 
@@ -86,7 +85,7 @@
         }
         .header-search-pill svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2.5; }
 
-        /* --- NEW TOP NAV TABS (With Icons & Reduced Size) --- */
+        /* --- TOP NAV TABS --- */
         .top-nav-tabs {
             display: flex;
             align-items: center;
@@ -106,9 +105,9 @@
             display: flex;
             align-items: center;
             gap: 6px;
-            padding: 8px 14px; /* Reduced from 10px 20px */
+            padding: 8px 14px;
             border-radius: 20px;
-            font-size: 12px; /* Reduced from 13px */
+            font-size: 12px;
             font-weight: 700;
             text-decoration: none;
             color: var(--text-dark);
@@ -117,28 +116,14 @@
             box-shadow: 0 2px 4px rgba(0,0,0,0.02);
             transition: all 0.2s ease;
         }
-        .top-tab svg {
-            width: 14px;
-            height: 14px;
-            stroke: currentColor;
-            fill: none;
-            stroke-width: 2.2;
-            stroke-linecap: round;
-            stroke-linejoin: round;
-            flex-shrink: 0;
-        }
-        .top-tab.active {
-            background: var(--primary-burgundy);
-            color: #ffffff;
-            border-color: var(--primary-burgundy);
-        }
+        .top-tab svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+        .top-tab.active { background: var(--primary-burgundy); color: #ffffff; border-color: var(--primary-burgundy); }
 
         /* --- APP CONTENT --- */
         .app-content {
             flex: 1;
             overflow-y: auto;
             -webkit-overflow-scrolling: touch;
-            /* Added var(--safe-nav-height) to completely clear the ad and the new white spacer */
             padding: 4px 16px calc(85px + var(--safe-nav-height)) 16px;
             box-sizing: border-box;
             position: relative;
@@ -177,10 +162,7 @@
 
         .timestamp-log-text { font-size: 11px; font-weight: 600; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 
-        .broadcast-image-frame {
-            width: 100%; max-height: 220px; border-radius: 12px; overflow: hidden; margin-bottom: 12px;
-            border: 1px solid var(--border-light); background: #f1f5f9; position: relative; cursor: pointer;
-        }
+        .broadcast-image-frame { width: 100%; max-height: 220px; border-radius: 12px; overflow: hidden; margin-bottom: 12px; border: 1px solid var(--border-light); background: #f1f5f9; position: relative; cursor: pointer; }
         .broadcast-image-frame img { width: 100%; height: 100%; object-fit: cover; filter: blur(12px); transition: filter 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
         .broadcast-image-frame img.loaded { filter: blur(0); }
 
@@ -198,41 +180,16 @@
         .menu-iframe-overlay.active .menu-iframe-drawer { transform: translateX(0); }
 
         /* --- AD MOB STYLES & BOTTOM NAV SPACER --- */
-        
-        /* Forces a physical white block at the absolute bottom to clear system nav bars */
-        .bottom-nav-spacer {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            height: var(--safe-nav-height);
-            background-color: #ffffff;
-            z-index: 8999;
-        }
-
-        .ad-container-wrapper { 
-            position: fixed; 
-            /* Pushes the ad wrapper exactly above the white nav spacer */
-            bottom: var(--safe-nav-height); 
-            left: 0; width: 100%; display: flex; justify-content: center; pointer-events: none; z-index: 9000; 
-        }
+        .bottom-nav-spacer { position: fixed; bottom: 0; left: 0; width: 100%; height: var(--safe-nav-height); background-color: #ffffff; z-index: 8999; }
+        .ad-container-wrapper { position: fixed; bottom: var(--safe-nav-height); left: 0; width: 100%; display: flex; justify-content: center; pointer-events: none; z-index: 9000; }
         .admob-preview-banner { width: 320px; height: 50px; background: #f1c40f; color: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 13px; font-weight: bold; border: 2px dashed #d35400; border-radius: 4px; box-shadow: 0px 4px 10px rgba(0,0,0,0.25); text-align: center; pointer-events: auto; margin-bottom: 0px; }
         
-        .native-ad-wrapper { 
-            display: flex; flex-direction: column; padding: 8px 12px; background: #ffffff; 
-            border-radius: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.1); margin-bottom: 12px; 
-            border: 1px solid var(--border-light);
-        }
+        .native-ad-wrapper { display: flex; flex-direction: column; padding: 8px 12px; background: #ffffff; border-radius: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.1); margin-bottom: 12px; border: 1px solid var(--border-light); }
         .sticky-ad-container { position: sticky; top: 0; z-index: 50; }
         .native-ad-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; border-bottom: 1px solid #f1f5f9; padding-bottom: 6px; }
         .native-ad-badge { background: #f59e0b; color: #fff; font-size: 10px; font-weight: 800; padding: 3px 8px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
         .native-ad-location { font-size: 10px; color: #64748b; font-weight: 600; }
-        
-        .native-ad-placeholder { 
-            display: block; width: 100%; height: 95px; min-height: 95px; margin: 0; padding: 0; 
-            border-radius: 8px; position: relative; overflow: hidden; box-sizing: border-box; z-index: 1; pointer-events: none;
-            background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%); background-size: 200% 100%; animation: adLoadingPulse 1.5s infinite;
-        }
+        .native-ad-placeholder { display: block; width: 100%; height: 95px; min-height: 95px; margin: 0; padding: 0; border-radius: 8px; position: relative; overflow: hidden; box-sizing: border-box; z-index: 1; pointer-events: none; background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%); background-size: 200% 100%; animation: adLoadingPulse 1.5s infinite; }
         @keyframes adLoadingPulse { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
         
         .mock-interstitial-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 99999; display: none; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box; }
@@ -241,11 +198,7 @@
         .mock-interstitial-close { position: absolute; top: 12px; right: 12px; background: #e2e8f0; border: none; border-radius: 50%; width: 32px; height: 32px; font-size: 16px; font-weight: bold; cursor: pointer; color: #333; }
 
         /* --- SEARCH MODAL --- */
-        .search-modal-overlay {
-            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(8, 27, 56, 0.6); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-            z-index: 1000; flex-direction: column; padding: calc(12px + env(safe-area-inset-top)) 16px 20px 16px;
-        }
+        .search-modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(8, 27, 56, 0.6); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); z-index: 1000; flex-direction: column; padding: calc(12px + env(safe-area-inset-top)) 16px 20px 16px; }
         .search-modal-overlay.active-search { display: flex; }
         .search-box-header { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
         .search-input-wrapper { flex: 1; display: flex; align-items: center; background: #ffffff; border: 1px solid var(--border-light); border-radius: 12px; padding: 0 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
@@ -255,11 +208,7 @@
         .search-results-area { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
 
         /* --- POPUP ALERT --- */
-        .custom-popup-overlay {
-            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(8, 27, 56, 0.4); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
-            z-index: 2100; justify-content: center; align-items: center; padding: 20px;
-        }
+        .custom-popup-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(8, 27, 56, 0.4); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); z-index: 2100; justify-content: center; align-items: center; padding: 20px; }
         .custom-popup-overlay.show-popup { display: flex; }
         .custom-popup-modal { width: 100%; max-width: 360px; background: #ffffff; border-radius: 20px; padding: 24px 20px; text-align: center; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.08); }
         .popup-status-icon { font-size: 40px; margin-bottom: 12px; display: inline-block; }
@@ -404,6 +353,35 @@
         function getAdMobPlugin() { return window.AdMobPlugin || null; }
         function isNativeApp() { return typeof window !== "undefined" && window.Capacitor && typeof window.Capacitor.isNativePlatform === "function" ? window.Capacitor.isNativePlatform() : false; }
 
+        // ----- NEW ONESIGNAL NOTIFICATION INITIALIZATION -----
+        function initializePushNotifications() {
+            if (!isNativeApp()) return;
+            
+            setTimeout(() => {
+                if (!window.OneSignal) return;
+                
+                // Fetch App ID from Firebase Database dynamically
+                onValue(ref(db, `${APP_NODE_NAME}/oneSignal`), snapshot => {
+                    if (!snapshot.exists()) return;
+                    const osData = snapshot.val();
+                    if (!osData.appId) return;
+                    
+                    try {
+                        if (typeof window.OneSignal.initialize === 'function') {
+                            window.OneSignal.initialize(osData.appId);
+                            window.OneSignal.Notifications.requestPermission(true);
+                        } else if (typeof window.OneSignal.setAppId === 'function') {
+                            window.OneSignal.setAppId(osData.appId);
+                            window.OneSignal.promptForPushNotificationsWithUserResponse(() => {});
+                        }
+                    } catch (e) {
+                        console.error("OneSignal Init Error:", e);
+                    }
+                }, { onlyOnce: true });
+            }, 1500); 
+        }
+        // -----------------------------------------------------
+
         async function hideCurrentNativeAd() {
             const AdPlugin = getAdMobPlugin();
             if (!isNativeApp() || !AdPlugin || typeof AdPlugin.hideNativeAd !== "function") { activeNativeAdId = null; return; }
@@ -496,6 +474,7 @@
         document.addEventListener("DOMContentLoaded", async () => {
             await fetchUserIPLocation();
             fetchAdMobUnits(); 
+            initializePushNotifications(); // <-- Triggers OneSignal
             streamLiveAdminUpdatesLog(); 
             setupSearchEngineControls(); 
             initiateLiveInterfaceClocks(); 
@@ -535,7 +514,6 @@
             });
         }
 
-        // Updated Goal 1: Uses Session Storage Lock to prevent ad triggering on menu changes
         async function triggerAppOpenAdStart() {
             if (sessionStorage.getItem('shikela_app_opened') === 'true') {
                 return;
@@ -726,7 +704,6 @@
             if (searchResults) searchResults.addEventListener("click", handleNewsClick);
         }
 
-        // Updated Goal 2: Uses Session Storage & redirects to article.html instead of full.html?id=...
         window.openFullNewsReader = function(itemId) {
             if (isOpeningArticle) return;
             isOpeningArticle = true;
@@ -739,10 +716,8 @@
                 if (isNativeApp() && AdPlugin && AdPlugin.hideBanner) await AdPlugin.hideBanner().catch(e => console.log(e));
                 await clearActiveFeedAds();
 
-                // Save article to session to load instantly on the next page
                 sessionStorage.setItem('shikela_current_article', JSON.stringify(item));
                 
-                // Navigate to full article page, maintaining the admin parameter if active
                 const targetUrl = isAdminMode ? 'article.html?admin=true' : 'article.html';
                 window.location.href = targetUrl;
                 
