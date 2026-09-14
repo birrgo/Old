@@ -313,25 +313,20 @@
             </div>
         </header>
         
-        <!-- UPDATED TABS: Custom icons based on the provided images -->
         <div class="top-nav-tabs">
             <a href="index.html" class="top-tab active">
-                <!-- Kept the original Home icon exactly as requested -->
                 <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
                 Home
             </a>
             <a href="s.html" class="top-tab">
-                <!-- Matching 46300.jpg: Magnifying Glass + Search Arc -->
                 <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><path d="M7 11a4 4 0 0 1 4-4"></path></svg>
                 Online Jobs
             </a>
             <a href="in.html" class="top-tab">
-                <!-- Matching 46302.jpg: Lightbulb with internal Gear -->
                 <svg viewBox="0 0 24 24"><path d="M9 21h6"></path><path d="M9 18h6"></path><path d="M12 3a7 7 0 0 0-7 7c0 2 1 3.9 2 5.5V18h10v-2.5c1-1.6 2-3.5 2-5.5a7 7 0 0 0-7-7z"></path><circle cx="12" cy="10" r="1.5"></circle><path d="M12 7v1M12 12v1M9 10h1M14 10h1"></path></svg>
                 Tech
             </a>
             <a href="sm.html" class="top-tab">
-                <!-- Matching 46301.jpg: Megaphone/Bullhorn -->
                 <svg viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5z"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
                 Social
             </a>
@@ -348,7 +343,6 @@
             <div class="admob-preview-banner" id="admobPreviewBanner">Home Banner Ad Preview Loading...</div>
         </div>
         
-        <!-- NEW: Dedicated white spacer block to sit behind the OS system navigation bar -->
         <div class="bottom-nav-spacer"></div>
 
         <div class="mock-interstitial-overlay" id="mockInterstitialModal">
@@ -374,7 +368,7 @@
         const APP_NODE_NAME = "app1";
 
         let rawShikelaNewsData = {}, rawNewNewsData = {}, localCachedBroadcasts = [];
-        let hasTriggeredAppOpen = false, lastAppOpenTime = 0, isOpeningArticle = false, bannerCreated = false;
+        let isOpeningArticle = false, bannerCreated = false;
         let userLocationData = null;
         
         window.globalAdConfig = {};
@@ -382,6 +376,9 @@
         let nativeAdObserverStarted = false, activeNativeAdId = null, nativeAdOperation = Promise.resolve(), currentAdGeneration = 0, requestedNativeAdId = null;
 
         const escapeHTML = s => String(s || "").replace(/[&<>'"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[m]));
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const isAdminMode = urlParams.get('admin') === 'true';
 
         async function fetchUserIPLocation() {
             const cachedData = localStorage.getItem('firatech_user_location');
@@ -538,11 +535,14 @@
             });
         }
 
+        // Updated Goal 1: Uses Session Storage Lock to prevent ad triggering on menu changes
         async function triggerAppOpenAdStart() {
-            const now = Date.now();
-            if (hasTriggeredAppOpen || now - lastAppOpenTime < 60000) return;
+            if (sessionStorage.getItem('shikela_app_opened') === 'true') {
+                return;
+            }
+            
             if (window.globalAdConfig?.placements?.appOpenAdStart && window.globalAdConfig?.appOpenId) {
-                hasTriggeredAppOpen = true; lastAppOpenTime = now;
+                sessionStorage.setItem('shikela_app_opened', 'true');
                 const AdPlugin = getAdMobPlugin();
                 if (isNativeApp() && AdPlugin) {
                     try {
@@ -556,10 +556,8 @@
         function setupAppResumeAdListener() {
             document.addEventListener("visibilitychange", async () => {
                 if (document.visibilityState !== "visible") return;
-                const now = Date.now();
-                if (now - lastAppOpenTime < 60000) return;
+                
                 if (window.globalAdConfig?.status && window.globalAdConfig?.placements?.appOpenAdResume && window.globalAdConfig?.appOpenId) {
-                    lastAppOpenTime = now;
                     const AdPlugin = getAdMobPlugin();
                     if (isNativeApp() && AdPlugin) {
                         try {
@@ -728,14 +726,26 @@
             if (searchResults) searchResults.addEventListener("click", handleNewsClick);
         }
 
+        // Updated Goal 2: Uses Session Storage & redirects to article.html instead of full.html?id=...
         window.openFullNewsReader = function(itemId) {
             if (isOpeningArticle) return;
             isOpeningArticle = true;
+
+            const item = localCachedBroadcasts.find(n => n.id === itemId);
+            if (!item) { isOpeningArticle = false; return; }
+
             showInterstitialAdMock(async () => {
                 const AdPlugin = getAdMobPlugin();
                 if (isNativeApp() && AdPlugin && AdPlugin.hideBanner) await AdPlugin.hideBanner().catch(e => console.log(e));
                 await clearActiveFeedAds();
-                window.location.href = `full.html?id=${encodeURIComponent(itemId)}`;
+
+                // Save article to session to load instantly on the next page
+                sessionStorage.setItem('shikela_current_article', JSON.stringify(item));
+                
+                // Navigate to full article page, maintaining the admin parameter if active
+                const targetUrl = isAdminMode ? 'article.html?admin=true' : 'article.html';
+                window.location.href = targetUrl;
+                
                 isOpeningArticle = false;
             });
         };

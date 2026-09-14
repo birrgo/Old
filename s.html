@@ -202,7 +202,7 @@
         const urlParams = new URLSearchParams(window.location.search);
         const isAdminMode = urlParams.get('admin') === 'true';
 
-        let hasTriggeredAppOpen = false, lastAppOpenTime = 0, isOpeningArticle = false, bannerCreated = false;
+        let isOpeningArticle = false, bannerCreated = false;
         let userLocationData = null;
         
         window.globalAdConfig = {};
@@ -314,6 +314,21 @@
             }
         }
 
+        // Listener for Resuming App (Background to Foreground)
+        document.addEventListener("visibilitychange", async () => {
+            if (document.visibilityState === 'visible') {
+                if (window.globalAdConfig?.placements?.appOpenAdStart && window.globalAdConfig?.appOpenId) {
+                    const AdPlugin = getAdMobPlugin();
+                    if (isNativeApp() && AdPlugin) {
+                        try {
+                            await AdPlugin.loadAppOpen({ adUnitId: window.globalAdConfig.appOpenId });
+                            await AdPlugin.showAppOpen();
+                        } catch (e) {}
+                    }
+                }
+            }
+        });
+
         // Modified Page Load listener
         document.addEventListener('DOMContentLoaded', async () => {
             // Restore banner ad just in case we returned from the article page
@@ -364,10 +379,14 @@
         }
 
         async function triggerAppOpenAdStart() {
-            const now = Date.now();
-            if (hasTriggeredAppOpen || now - lastAppOpenTime < 60000) return;
+            // Check sessionStorage: If true, user is just switching menu tabs, so DO NOT show ad again.
+            if (sessionStorage.getItem('shikela_app_opened') === 'true') {
+                return;
+            }
+            
             if (window.globalAdConfig?.placements?.appOpenAdStart && window.globalAdConfig?.appOpenId) {
-                hasTriggeredAppOpen = true; lastAppOpenTime = now;
+                // Set the session lock so navigating tabs doesn't trigger the ad
+                sessionStorage.setItem('shikela_app_opened', 'true');
                 const AdPlugin = getAdMobPlugin();
                 if (isNativeApp() && AdPlugin) {
                     try {
