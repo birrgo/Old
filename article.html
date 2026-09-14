@@ -98,19 +98,61 @@
         .popup-main-title { font-size: 17px; font-weight: 800; color: var(--text-dark); margin-bottom: 6px; }
         .popup-body-desc { font-size: 13px; font-weight: 500; color: var(--text-muted); line-height: 1.4; margin-bottom: 20px; }
         .popup-dismiss-action { width: 100%; padding: 12px; background: var(--primary-gradient); color: #ffffff; border: none; border-radius: 12px; font-size: 13px; font-weight: 700; cursor: pointer; }
+        
+        /* --- NEW FIXED TOP AD STYLES (MATCHES VIDEO) --- */
+        .fixed-ad-wrapper {
+            padding: 12px 16px;
+            background: #fafbfc; /* Matches body background */
+            flex-shrink: 0;
+            z-index: 50;
+            position: relative;
+            border-bottom: 1px solid var(--border-light);
+        }
+        .fixed-ad-card {
+            background: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+            border: 1px solid var(--border-light);
+            padding: 12px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .fixed-ad-badge {
+            background: #f1c40f; /* Yellow from video */
+            color: #000;
+            font-size: 10px;
+            font-weight: 800;
+            padding: 4px 8px;
+            border-radius: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: inline-block;
+            margin-bottom: 8px;
+        }
     </style>
 </head>
 <body>
     <script src="native-bridge.js"></script>
 
     <div class="full-news-modal-overlay active-reader" id="fullNewsModalOverlay" style="transform: translateY(0); transition: none;">
+        
+        <!-- Sticky Header -->
         <div class="news-reader-header">
             <h2 style="font-size: 16px; font-weight: 800; color: var(--text-dark);">Article Details</h2>
             <button class="close-reader-btn" id="closeNewsReaderBtn" aria-label="Close Reader">
                 <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
             </button>
         </div>
-        <!-- padding-bottom added inline here to ensure there's enough physical scroll room at the very bottom -->
+
+        <!-- NEW FIXED AD SECTION: Content will perfectly scroll under this because it is outside the scrolling body -->
+        <div class="fixed-ad-wrapper">
+            <div class="fixed-ad-card">
+                <div class="fixed-ad-badge">ADVERTISEMENT</div>
+                <div id="article-native-fixed" class="native-ad-placeholder" style="height: 120px; width: 100%; border-radius: 8px;"></div>
+            </div>
+        </div>
+
+        <!-- Scrollable Article Content -->
         <div class="news-reader-content" id="fullNewsReaderBody" style="padding-bottom: 120px;"></div>
     </div>
 
@@ -213,7 +255,7 @@
             }
         }
 
-        // SCROLL SYNCHRONIZATION: This continuously pushes X/Y coords to the native bridge on scroll so it perfectly sticks to the web layout
+        // SCROLL SYNCHRONIZATION: Maintains exact ad coords for the fixed native ad over the bridge
         function setupScrollSynchronization() {
             const scrollContainer = document.getElementById('fullNewsReaderBody');
             if (!scrollContainer) return;
@@ -228,11 +270,10 @@
                     if (el) {
                         const rect = el.getBoundingClientRect();
                         if (rect.bottom > 0 && rect.top < window.innerHeight) {
-                            const templateType = activeNativeAdId.includes('bottom') ? 'medium' : 'small';
                             getAdMobPlugin().showNativeAd({
                                 adId: activeNativeAdId,
                                 adUnitId: window.globalAdConfig.nativeId,
-                                template: templateType,
+                                template: 'small', // Use small template for the fixed top ad
                                 x: Math.round(rect.left),
                                 y: Math.round(rect.top),
                                 width: Math.round(rect.width),
@@ -261,12 +302,11 @@
                         }
                     });
                 }
-            }, { threshold: 0.05 }); // Lowered threshold to trigger faster and keep the ad alive smoothly during scrolling
+            }, { threshold: 0.05 });
 
-            const topAd = document.getElementById('article-native-top');
-            const bottomAd = document.getElementById('article-native-bottom');
-            if (topAd) nativeAdObserver.observe(topAd);
-            if (bottomAd) nativeAdObserver.observe(bottomAd);
+            // ONLY Observe the single Fixed top ad
+            const fixedAd = document.getElementById('article-native-fixed');
+            if (fixedAd) nativeAdObserver.observe(fixedAd);
         }
 
         async function showNativeAdForSlot(element) {
@@ -281,14 +321,12 @@
                 
                 const rect = element.getBoundingClientRect();
                 if (rect.width <= 0 || rect.height <= 0) return;
-
-                const templateType = element.id.includes('bottom') ? 'medium' : 'small'; 
                 
                 try {
                     await AdPlugin.showNativeAd({
                         adId: element.id, 
                         adUnitId: window.globalAdConfig.nativeId, 
-                        template: templateType, 
+                        template: 'small', // Static small design matching the yellow card
                         x: Math.round(rect.left), 
                         y: Math.round(rect.top), 
                         width: Math.round(rect.width), 
@@ -383,13 +421,7 @@
             let adminDuplicateBtnReader = "";
             if (isAdminMode) adminDuplicateBtnReader = `<button class="admin-duplicate-btn" style="margin-bottom: 12px; width: 100%;" onclick="duplicateAsAdmin()">📋 Duplicate Article Entry</button>`;
 
-            // FORCING NO OVERLAPS & PERFECT SIZING:
-            // 1. Top Ad height restricted to 110px.
-            // 2. Bottom Ad height pushed to 350px for Medium template.
-            // 3. Bottom Ad has "margin-bottom: 120px;" - This absolutely guarantees the native ad is placed above the bottom banner's footprint.
-            let topNativeAdHTML = `<div id="article-native-top" class="native-ad-placeholder" style="height: 110px; min-height: 110px; margin-bottom: 16px; width: 100%; display: block; box-sizing: border-box; border-radius: 8px;"></div>`;
-            let bottomNativeAdHTML = `<div id="article-native-bottom" class="native-ad-placeholder" style="height: 350px; min-height: 350px; margin-top: 24px; margin-bottom: 120px; width: 100%; display: block; box-sizing: border-box; border-radius: 8px;"></div>`;
-
+            // Render scrolling content only (the fixed ad is placed outside in the HTML above)
             readerBody.innerHTML = `
                 ${adminDuplicateBtnReader}
                 <div class="reader-meta-bar">
@@ -398,11 +430,9 @@
                 </div>
                 <h1 class="reader-title">${escapeHTML(headline)}</h1>
                 ${imageHTML}
-                ${topNativeAdHTML}
                 ${videoHTML}
                 <div class="reader-full-body">${fullContent}</div>
                 ${redirectBtnHTML}
-                ${bottomNativeAdHTML}
             `;
             
             fetchAdMobUnits();
