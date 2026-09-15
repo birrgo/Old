@@ -353,30 +353,28 @@
         function getAdMobPlugin() { return window.AdMobPlugin || null; }
         function isNativeApp() { return typeof window !== "undefined" && window.Capacitor && typeof window.Capacitor.isNativePlatform === "function" ? window.Capacitor.isNativePlatform() : false; }
 
-        // ----- NEW ONESIGNAL NOTIFICATION INITIALIZATION -----
+        // ----- UPDATED ONESIGNAL NOTIFICATION INITIALIZATION -----
         function initializePushNotifications() {
             if (!isNativeApp()) return;
             
             setTimeout(() => {
-                const OneSignal = window.plugins && window.plugins.OneSignal;
+                const OneSignal = window.OneSignal;
                 if (!OneSignal) {
                     console.warn("OneSignal native plugin not found.");
                     return;
                 }
                 
                 // Fetch App ID from Firebase Database dynamically
-                onValue(ref(db, `${APP_NODE_NAME}/oneSignal`), snapshot => {
+                onValue(ref(db, `${APP_NODE_NAME}/oneSignal`), async (snapshot) => {
                     if (!snapshot.exists()) return;
                     const osData = snapshot.val();
                     if (!osData.appId) return;
                     
                     try {
                         if (typeof OneSignal.initialize === 'function') {
-                            OneSignal.initialize(osData.appId);
-                            OneSignal.Notifications.requestPermission(true);
-                        } else if (typeof OneSignal.setAppId === 'function') {
-                            OneSignal.setAppId(osData.appId);
-                            OneSignal.promptForPushNotificationsWithUserResponse(() => {});
+                            await OneSignal.initialize(osData.appId);
+                            // This executes the native push permission popup on Android 13+
+                            await OneSignal.Notifications.requestPermission(true);
                         }
                     } catch (e) {
                         console.error("OneSignal Init Error:", e);
@@ -384,7 +382,7 @@
                 }, { onlyOnce: true });
             }, 1500); 
         }
-        // -----------------------------------------------------
+        // ---------------------------------------------------------
 
         async function hideCurrentNativeAd() {
             const AdPlugin = getAdMobPlugin();
