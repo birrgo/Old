@@ -1,4 +1,4 @@
-name: Convert PWA to Android APK
+Name: Convert PWA to Android APK
 
 on:
   push:
@@ -48,10 +48,8 @@ jobs:
           
           echo "import { Capacitor } from '@capacitor/core';" > bridge.js
           echo "import { AdMobNextGen } from 'capacitor-admob-nextgen';" >> bridge.js
-          echo "import OneSignal from 'onesignal-cordova-plugin';" >> bridge.js
           echo "window.Capacitor = Capacitor;" >> bridge.js
           echo "window.AdMobPlugin = AdMobNextGen;" >> bridge.js
-          echo "window.OneSignal = OneSignal;" >> bridge.js
           
           npx esbuild bridge.js --bundle --minify --outfile=www/native-bridge.js
 
@@ -89,6 +87,7 @@ jobs:
           npx cap sync android
           if [ -f node_modules/capacitor-admob-nextgen/scripts/admob-manifest.js ]; then node node_modules/capacitor-admob-nextgen/scripts/admob-manifest.js; fi
           if [ -f node_modules/capacitor-admob-nextgen/scripts/admob-native.js ]; then node node_modules/capacitor-admob-nextgen/scripts/admob-native.js; fi
+          sed -i '/<application/i \    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />' android/app/src/main/AndroidManifest.xml
 
       - name: Target Android SDK 36
         run: |
