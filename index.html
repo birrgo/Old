@@ -5,7 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Fira Tech | App Updates, Tech Tips & Digital Skills</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- PREVENT SPLASH WHEN SWITCHING MENUS/PAGES -->
+    <script>
+        if (sessionStorage.getItem('firatech_session_active') === 'true') {
+            document.documentElement.classList.add('no-splash');
+        }
+    </script>
+    
     <style>
+        /* Immediately hide splash if navigating pages in the same session */
+        .no-splash #appSplashOverlay {
+            display: none !important;
+        }
+
         /* --- GLOBAL VARIABLES & BASE STYLES --- */
         :root {
             --primary-burgundy: #0F2C59;
@@ -38,30 +51,59 @@
             background-size: 20px 20px;
         }
 
-        /* --- SPLASH SCREEN OVERLAY --- */
+        /* --- FULL SCREEN SPLASH SCREEN OVERLAY --- */
         #appSplashOverlay {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: #ffffff;
+            background: #081B38;
             z-index: 999999;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            transition: opacity 0.3s ease-out, visibility 0.3s ease-out;
+            transition: opacity 0.35s ease-out, visibility 0.35s ease-out;
+            overflow: hidden;
         }
-        #appSplashOverlay img {
-            width: 120px;
-            height: auto;
-            animation: pulseSplash 2s infinite ease-in-out;
+        
+        .splash-image-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
         }
+        
+        .splash-image-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            animation: pulseSplash 3s infinite ease-in-out;
+        }
+        
         @keyframes pulseSplash {
             0% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.05); opacity: 0.8; }
+            50% { transform: scale(1.03); opacity: 0.9; }
             100% { transform: scale(1); opacity: 1; }
+        }
+
+        /* Bottom Circular Loading Spinner */
+        .splash-spinner {
+            position: absolute;
+            bottom: 60px;
+            left: 50%;
+            margin-left: -22px;
+            z-index: 2;
+            width: 44px;
+            height: 44px;
+            border: 4px solid rgba(255, 255, 255, 0.2);
+            border-top: 4px solid #ffffff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin { 
+            0% { transform: rotate(0deg); } 
+            100% { transform: rotate(360deg); } 
         }
 
         .app-view {
@@ -252,9 +294,12 @@
 <body>
     <script src="native-bridge.js"></script>
     
-    <!-- INITIAL SPLASH SCREEN OVERLAY -->
+    <!-- FULL SCREEN SPLASH SCREEN OVERLAY -->
     <div id="appSplashOverlay">
-        <img src="s1.png" alt="Loading Fira Tech..." onerror="this.style.display='none'">
+        <div class="splash-image-container">
+            <img src="s1.png" alt="Loading Fira Tech..." onerror="this.style.display='none'">
+        </div>
+        <div class="splash-spinner"></div>
     </div>
 
     <div class="app-view">
@@ -358,7 +403,6 @@
         let isOpeningArticle = false, bannerCreated = false;
         let userLocationData = null;
         
-        // --- PAGINATION VARIABLES ---
         let currentPage = 0;
         const ITEMS_PER_PAGE = 3;
         let isRenderingBatch = false;
@@ -367,26 +411,71 @@
         window.nativeAdObserver = null;
         let nativeAdObserverStarted = false, activeNativeAdId = null, nativeAdOperation = Promise.resolve(), currentAdGeneration = 0, requestedNativeAdId = null;
 
-        const escapeHTML = s => String(s || "").replace(/[&<>'"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[m]));
+        const isSessionAlreadyStarted = sessionStorage.getItem('firatech_session_active') === 'true';
+        let splashDismissed = isSessionAlreadyStarted;
+        let pushInitialized = false;
 
+        const escapeHTML = s => String(s || "").replace(/[&<>'"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[m]));
         const urlParams = new URLSearchParams(window.location.search);
         const isAdminMode = urlParams.get('admin') === 'true';
 
-        // Helper to quickly hide the splash screen
-        function removeAppSplashScreen() {
+        // --- SPLASH MANAGEMENT ---
+        function showSplashOverlay() {
+            let splash = document.getElementById("appSplashOverlay");
+            if (!splash) {
+                const div = document.createElement("div");
+                div.id = "appSplashOverlay";
+                div.innerHTML = `
+                    <div class="splash-image-container">
+                        <img src="s1.png" alt="Loading Fira Tech..." onerror="this.style.display='none'">
+                    </div>
+                    <div class="splash-spinner"></div>
+                `;
+                document.body.appendChild(div);
+                splash = div;
+            }
+            document.documentElement.classList.remove('no-splash');
+            splash.style.display = 'block';
+            splash.style.opacity = '1';
+            splash.style.visibility = 'visible';
+        }
+
+        function removeAppSplashScreenAndInitPush() {
+            splashDismissed = true;
+            sessionStorage.setItem('firatech_session_active', 'true');
+            
             const splash = document.getElementById("appSplashOverlay");
             if (splash) {
                 splash.style.opacity = '0';
                 splash.style.visibility = 'hidden';
-                setTimeout(() => splash.remove(), 350);
+                setTimeout(() => {
+                    splash.style.display = 'none';
+                    document.documentElement.classList.add('no-splash');
+                }, 350);
             }
+            
             if (isNativeApp() && window.Capacitor?.Plugins?.SplashScreen) {
                 window.Capacitor.Plugins.SplashScreen.hide().catch(()=>{});
             }
+
+            // Ask Notification Permission immediately after the initial App Open Ad is dismissed
+            if (!pushInitialized) {
+                pushInitialized = true;
+                setTimeout(initializePushNotifications, 500); 
+            }
         }
 
-        // Failsafe: Remove splash screen after 5.5 seconds regardless of ad load time
-        setTimeout(() => removeAppSplashScreen(), 5500);
+        if (!isSessionAlreadyStarted) {
+            setTimeout(() => {
+                if (!splashDismissed) fallbackStart();
+            }, 8000);
+        }
+
+        function fallbackStart() {
+            removeAppSplashScreenAndInitPush();
+            triggerBannerAdHomePage();
+            if (localCachedBroadcasts.length > 0) renderFilteredBroadcasts();
+        }
 
         async function fetchUserIPLocation() {
             const cachedData = localStorage.getItem('firatech_user_location');
@@ -413,22 +502,20 @@
 
         function initializePushNotifications() {
             if (!isNativeApp()) return;
-            setTimeout(() => {
-                const OneSignal = window.OneSignal;
-                if (!OneSignal) return;
-                
-                onValue(ref(db, `${APP_NODE_NAME}/oneSignal`), async (snapshot) => {
-                    if (!snapshot.exists()) return;
-                    const osData = snapshot.val();
-                    if (!osData.appId) return;
-                    try {
-                        if (typeof OneSignal.initialize === 'function') {
-                            await OneSignal.initialize(osData.appId);
-                            await OneSignal.Notifications.requestPermission(true);
-                        }
-                    } catch (e) { console.error("OneSignal Init Error:", e); }
-                }, { onlyOnce: true });
-            }, 1500); 
+            const OneSignal = window.OneSignal;
+            if (!OneSignal) return;
+            
+            onValue(ref(db, `${APP_NODE_NAME}/oneSignal`), async (snapshot) => {
+                if (!snapshot.exists()) return;
+                const osData = snapshot.val();
+                if (!osData.appId) return;
+                try {
+                    if (typeof OneSignal.initialize === 'function') {
+                        await OneSignal.initialize(osData.appId);
+                        await OneSignal.Notifications.requestPermission(true);
+                    }
+                } catch (e) {}
+            }, { onlyOnce: true });
         }
 
         async function hideCurrentNativeAd() {
@@ -523,7 +610,6 @@
         document.addEventListener("DOMContentLoaded", async () => {
             await fetchUserIPLocation();
             fetchAdMobUnits(); 
-            initializePushNotifications();
             streamLiveAdminUpdatesLog(); 
             setupSearchEngineControls(); 
             initiateLiveInterfaceClocks(); 
@@ -540,56 +626,58 @@
         });
 
         function fetchAdMobUnits() {
-            onValue(ref(db, `${APP_NODE_NAME}/adManager`), snapshot => {
-                if (!snapshot.exists()) return;
+            onValue(ref(db, `${APP_NODE_NAME}/adManager`), async snapshot => {
+                if (!snapshot.exists()) { fallbackStart(); return; }
                 const adData = snapshot.val();
                 window.globalAdConfig = { status: String(adData.adStatus).toUpperCase() === "TRUE" || String(adData.adStatus).toUpperCase() === "ON", bannerId: adData.adMobBannerUnitId, interstitialId: adData.adMobInterstitialUnitId, nativeId: adData.adMobNativeUnitId, appOpenId: adData.adMobAppOpenUnitId, placements: adData.placements || {} };
-                if (!window.globalAdConfig.status) { removeAppSplashScreen(); return; }
+                
+                if (!window.globalAdConfig.status) { fallbackStart(); return; }
 
                 const AdPlugin = getAdMobPlugin();
                 if (isNativeApp() && AdPlugin) {
-                    (async () => {
-                        try {
-                            if (typeof AdPlugin.requestConsentInfo === "function") await AdPlugin.requestConsentInfo({ showFormIfRequired: true });
-                            if (typeof AdPlugin.initialize === "function") await AdPlugin.initialize({ isTesting: true });
-                            triggerAppOpenAdStart(); 
-                            triggerBannerAdHomePage();
-                            if (localCachedBroadcasts.length > 0) renderFilteredBroadcasts();
-                        } catch (e) { removeAppSplashScreen(); }
-                    })();
+                    try {
+                        if (typeof AdPlugin.requestConsentInfo === "function") await AdPlugin.requestConsentInfo({ showFormIfRequired: true });
+                        if (typeof AdPlugin.initialize === "function") await AdPlugin.initialize({ isTesting: true });
+                        
+                        if (!isSessionAlreadyStarted) {
+                            await handleAppOpenAdAndStart();
+                        } else {
+                            fallbackStart();
+                        }
+                    } catch (e) { fallbackStart(); }
                 } else {
-                    removeAppSplashScreen();
-                    triggerBannerAdHomePage();
-                    if (localCachedBroadcasts.length > 0) renderFilteredBroadcasts();
+                    fallbackStart();
                 }
-            });
+            }, { onlyOnce: true });
         }
 
-        async function triggerAppOpenAdStart() {
-            if (sessionStorage.getItem('shikela_app_opened') === 'true') {
-                removeAppSplashScreen();
-                return;
-            }
-            
+        async function handleAppOpenAdAndStart() {
             const AdPlugin = getAdMobPlugin();
             if (window.globalAdConfig?.placements?.appOpenAdStart && window.globalAdConfig?.appOpenId && isNativeApp() && AdPlugin) {
-                sessionStorage.setItem('shikela_app_opened', 'true');
+                let adFinished = false;
+                const proceed = () => {
+                    if (adFinished) return;
+                    adFinished = true;
+                    fallbackStart();
+                };
+
                 try {
-                    // Listeners to ensure splash screen drops immediately when ad closes/fails
-                    if(AdPlugin.addListener) {
-                        AdPlugin.addListener('appOpenAdDismissed', () => removeAppSplashScreen());
-                        AdPlugin.addListener('appOpenAdFailedToShow', () => removeAppSplashScreen());
+                    if (AdPlugin.addListener) {
+                        AdPlugin.addListener('appOpenAdDismissed', proceed);
+                        AdPlugin.addListener('appOpenAdFailedToShow', proceed);
                     }
                     await AdPlugin.loadAppOpen({ adUnitId: window.globalAdConfig.appOpenId });
                     await AdPlugin.showAppOpen();
+                    setTimeout(proceed, 15000);
                 } catch (e) { 
-                    removeAppSplashScreen(); 
+                    proceed(); 
                 }
             } else {
-                removeAppSplashScreen();
+                fallbackStart();
             }
         }
 
+        // --- APP RESUME AD TRIGGER (SHOWS SPLASH SCREEN WHILE LOADING) ---
         function setupAppResumeAdListener() {
             document.addEventListener("visibilitychange", async () => {
                 if (document.visibilityState !== "visible") return;
@@ -597,10 +685,26 @@
                 if (window.globalAdConfig?.status && window.globalAdConfig?.placements?.appOpenAdResume && window.globalAdConfig?.appOpenId) {
                     const AdPlugin = getAdMobPlugin();
                     if (isNativeApp() && AdPlugin) {
+                        showSplashOverlay();
+                        
+                        let resumeFinished = false;
+                        const onResumeDismissed = () => {
+                            if (resumeFinished) return;
+                            resumeFinished = true;
+                            removeAppSplashScreenAndInitPush();
+                        };
+
                         try {
+                            if (AdPlugin.addListener) {
+                                AdPlugin.addListener('appOpenAdDismissed', onResumeDismissed);
+                                AdPlugin.addListener('appOpenAdFailedToShow', onResumeDismissed);
+                            }
                             await AdPlugin.loadAppOpen({ adUnitId: window.globalAdConfig.appOpenId });
                             await AdPlugin.showAppOpen();
-                        } catch (e) {}
+                            setTimeout(onResumeDismissed, 10000);
+                        } catch (e) {
+                            onResumeDismissed();
+                        }
                     }
                 }
             });
@@ -718,7 +822,10 @@
             addNode(rawShikelaNewsData, "Fira Tech Update");
             addNode(rawNewNewsData, "Fira Tech Tips");
             localCachedBroadcasts.sort((a, b) => b.resolvedTimestamp - a.resolvedTimestamp);
-            renderFilteredBroadcasts();
+            
+            if (splashDismissed) {
+                renderFilteredBroadcasts();
+            }
         }
 
         function streamLiveAdminUpdatesLog() {
@@ -793,13 +900,10 @@
             contentArea.addEventListener('scroll', () => {
                 if (scrollTimeout) return;
                 scrollTimeout = setTimeout(() => {
-                    
-                    // --- 1. INFINITE SCROLL / PAGINATION LOGIC ---
                     if (contentArea.scrollTop + contentArea.clientHeight >= contentArea.scrollHeight - 250) {
                         loadNextBatchOfItems();
                     }
 
-                    // --- 2. NATIVE AD RELOAD LOGIC ---
                     const cards = document.querySelectorAll('.featured-broadcast-card:not(.native-ad-wrapper)');
                     let passedCount = 0;
                     const stickyAd = document.querySelector('.sticky-ad-container');
@@ -823,7 +927,6 @@
             });
         }
 
-        // --- LAZY LOADING FUNCTION ---
         function loadNextBatchOfItems() {
             if (isRenderingBatch) return;
             const container = document.getElementById("broadcastsContainer");
@@ -854,13 +957,14 @@
         }
 
         async function renderFilteredBroadcasts() {
+            if (!splashDismissed) return;
+            
             const container = document.getElementById("broadcastsContainer");
             if (!container) return;
             
             await clearActiveFeedAds();
             initializeNativeAdObserver();
             
-            // Reset for initial pagination
             container.innerHTML = "";
             currentPage = 0;
             document.getElementById("endOfListShield").style.display = "none";
@@ -870,7 +974,6 @@
                 return;
             }
 
-            // Setup Native Ad Wrapper
             const nativeEnabled = window.globalAdConfig?.placements?.nativeAdPostList && window.globalAdConfig?.nativeId && isNativeApp() && getAdMobPlugin();
             if (nativeEnabled) {
                 const adDivId = `native-feed-ad-sticky`;
@@ -895,7 +998,6 @@
                 }
             }
 
-            // Execute first fast load of exactly 3 items
             loadNextBatchOfItems();
         }
 
