@@ -76,7 +76,7 @@
         .splash-image-container img {
             width: 100%;
             height: 100%;
-            object-fit: cover;
+            object-fit: cover; /* Forces the image to fill the entire screen perfectly */
             animation: pulseSplash 3s infinite ease-in-out;
         }
         
@@ -86,7 +86,7 @@
             100% { transform: scale(1); opacity: 1; }
         }
 
-        /* Bottom Circular Loading Spinner */
+        /* Bottom Circular Loading Spinner positioned ON TOP of the full-screen image */
         .splash-spinner {
             position: absolute;
             bottom: 60px;
@@ -366,7 +366,7 @@
 
         <main class="app-content" id="mainContentArea">
             <div class="broadcasts-container" id="broadcastsContainer">
-                <div class="featured-broadcast-card"><h2 class="broadcast-title" style="font-size:14px; text-align:center; color:var(--text-muted);">Fetching Latest Updates...</h2></div>
+                <!-- Starts empty. Nothing renders until Splash is done. -->
             </div>
             <footer class="verified-footer-shield" id="endOfListShield"><span class="footer-shield-text">Fira Tech Matrix Verified</span></footer>
         </main>
@@ -411,15 +411,20 @@
         window.nativeAdObserver = null;
         let nativeAdObserverStarted = false, activeNativeAdId = null, nativeAdOperation = Promise.resolve(), currentAdGeneration = 0, requestedNativeAdId = null;
 
+        // --- STRICT APP STATE CONTROL ---
+        // Keeps track of whether we are actively holding the splash screen
         const isSessionAlreadyStarted = sessionStorage.getItem('firatech_session_active') === 'true';
-        let splashDismissed = isSessionAlreadyStarted;
+        let appIsReadyForContent = isSessionAlreadyStarted;
         let pushInitialized = false;
+
+        let isHandlingInitialAd = !isSessionAlreadyStarted;
+        let isHandlingResumeAd = false;
 
         const escapeHTML = s => String(s || "").replace(/[&<>'"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[m]));
         const urlParams = new URLSearchParams(window.location.search);
         const isAdminMode = urlParams.get('admin') === 'true';
 
-        // --- SPLASH MANAGEMENT ---
+        // Helper: Show overlay when app resumes
         function showSplashOverlay() {
             let splash = document.getElementById("appSplashOverlay");
             if (!splash) {
@@ -440,10 +445,51 @@
             splash.style.visibility = 'visible';
         }
 
-        function removeAppSplashScreenAndInitPush() {
-            splashDismissed = true;
+        // Helper: Removes splash, asks for Push, and finally builds the DOM with Ads
+        function transitionToMainApp() {
+            if (appIsReadyForContent) return;
+            appIsReadyForContent = true;
             sessionStorage.setItem('firatech_session_active', 'true');
             
+            // 1. Hide Splash Screen
+            const splash = document.getElementById("appSplashOverlay");
+            if (splash) {
+                splash.style.opacity = '0';
+                splash.style.visibility = 'hidden';
+                setTimeout(() => {
+                    splash.style.display = 'none';
+                    document.documentElement.classList.add('no-splash');
+                }, 350);
+            }
+            if (isNativeApp() && window.Capacitor?.Plugins?.SplashScreen) {
+                window.Capacitor.Plugins.SplashScreen.hide().catch(()=>{});
+            }
+
+            // 2. Ask for Notifications (only after App Open Ad is done)
+            if (!pushInitialized) {
+                pushInitialized = true;
+                setTimeout(initializePushNotifications, 500); 
+            }
+
+            // 3. Spawns Banner & News (which spawns Native Ads safely UNDER the vanished splash)
+            triggerBannerAdHomePage();
+            if (localCachedBroadcasts.length > 0) {
+                renderFilteredBroadcasts();
+            }
+        }
+
+        // Global callback attached once to avoid memory leaks
+        function onGlobalAppOpenAdClosed() {
+            if (isHandlingInitialAd) {
+                isHandlingInitialAd = false;
+                transitionToMainApp();
+            } else if (isHandlingResumeAd) {
+                isHandlingResumeAd = false;
+                finishResumeSequence();
+            }
+        }
+
+        async function finishResumeSequence() {
             const splash = document.getElementById("appSplashOverlay");
             if (splash) {
                 splash.style.opacity = '0';
@@ -454,27 +500,11 @@
                 }, 350);
             }
             
-            if (isNativeApp() && window.Capacitor?.Plugins?.SplashScreen) {
-                window.Capacitor.Plugins.SplashScreen.hide().catch(()=>{});
+            const AdPlugin = getAdMobPlugin();
+            if (AdPlugin && AdPlugin.showBanner) {
+                try { await AdPlugin.showBanner(); } catch(e){}
             }
-
-            // Ask Notification Permission immediately after the initial App Open Ad is dismissed
-            if (!pushInitialized) {
-                pushInitialized = true;
-                setTimeout(initializePushNotifications, 500); 
-            }
-        }
-
-        if (!isSessionAlreadyStarted) {
-            setTimeout(() => {
-                if (!splashDismissed) fallbackStart();
-            }, 8000);
-        }
-
-        function fallbackStart() {
-            removeAppSplashScreenAndInitPush();
-            triggerBannerAdHomePage();
-            if (localCachedBroadcasts.length > 0) renderFilteredBroadcasts();
+            restoreNativeAdIfApplicable();
         }
 
         async function fetchUserIPLocation() {
@@ -609,6 +639,7 @@
 
         document.addEventListener("DOMContentLoaded", async () => {
             await fetchUserIPLocation();
+            
             fetchAdMobUnits(); 
             streamLiveAdminUpdatesLog(); 
             setupSearchEngineControls(); 
@@ -627,11 +658,11 @@
 
         function fetchAdMobUnits() {
             onValue(ref(db, `${APP_NODE_NAME}/adManager`), async snapshot => {
-                if (!snapshot.exists()) { fallbackStart(); return; }
+                if (!snapshot.exists()) { onGlobalAppOpenAdClosed(); return; }
                 const adData = snapshot.val();
                 window.globalAdConfig = { status: String(adData.adStatus).toUpperCase() === "TRUE" || String(adData.adStatus).toUpperCase() === "ON", bannerId: adData.adMobBannerUnitId, interstitialId: adData.adMobInterstitialUnitId, nativeId: adData.adMobNativeUnitId, appOpenId: adData.adMobAppOpenUnitId, placements: adData.placements || {} };
                 
-                if (!window.globalAdConfig.status) { fallbackStart(); return; }
+                if (!window.globalAdConfig.status) { onGlobalAppOpenAdClosed(); return; }
 
                 const AdPlugin = getAdMobPlugin();
                 if (isNativeApp() && AdPlugin) {
@@ -639,45 +670,29 @@
                         if (typeof AdPlugin.requestConsentInfo === "function") await AdPlugin.requestConsentInfo({ showFormIfRequired: true });
                         if (typeof AdPlugin.initialize === "function") await AdPlugin.initialize({ isTesting: true });
                         
-                        if (!isSessionAlreadyStarted) {
-                            await handleAppOpenAdAndStart();
-                        } else {
-                            fallbackStart();
+                        // Register global events purely once
+                        if (AdPlugin.addListener && !window.adEventsBound) {
+                            window.adEventsBound = true;
+                            AdPlugin.addListener('appOpenAdDismissed', onGlobalAppOpenAdClosed);
+                            AdPlugin.addListener('appOpenAdFailedToShow', onGlobalAppOpenAdClosed);
                         }
-                    } catch (e) { fallbackStart(); }
+
+                        if (!isSessionAlreadyStarted) {
+                            // Failsafe timer (if ad fails silently)
+                            setTimeout(() => onGlobalAppOpenAdClosed(), 10000);
+                            await AdPlugin.loadAppOpen({ adUnitId: window.globalAdConfig.appOpenId });
+                            await AdPlugin.showAppOpen();
+                        } else {
+                            onGlobalAppOpenAdClosed();
+                        }
+                    } catch (e) { onGlobalAppOpenAdClosed(); }
                 } else {
-                    fallbackStart();
+                    onGlobalAppOpenAdClosed();
                 }
             }, { onlyOnce: true });
         }
 
-        async function handleAppOpenAdAndStart() {
-            const AdPlugin = getAdMobPlugin();
-            if (window.globalAdConfig?.placements?.appOpenAdStart && window.globalAdConfig?.appOpenId && isNativeApp() && AdPlugin) {
-                let adFinished = false;
-                const proceed = () => {
-                    if (adFinished) return;
-                    adFinished = true;
-                    fallbackStart();
-                };
-
-                try {
-                    if (AdPlugin.addListener) {
-                        AdPlugin.addListener('appOpenAdDismissed', proceed);
-                        AdPlugin.addListener('appOpenAdFailedToShow', proceed);
-                    }
-                    await AdPlugin.loadAppOpen({ adUnitId: window.globalAdConfig.appOpenId });
-                    await AdPlugin.showAppOpen();
-                    setTimeout(proceed, 15000);
-                } catch (e) { 
-                    proceed(); 
-                }
-            } else {
-                fallbackStart();
-            }
-        }
-
-        // --- APP RESUME AD TRIGGER (SHOWS SPLASH SCREEN WHILE LOADING) ---
+        // --- APP RESUME AD TRIGGER ---
         function setupAppResumeAdListener() {
             document.addEventListener("visibilitychange", async () => {
                 if (document.visibilityState !== "visible") return;
@@ -685,25 +700,25 @@
                 if (window.globalAdConfig?.status && window.globalAdConfig?.placements?.appOpenAdResume && window.globalAdConfig?.appOpenId) {
                     const AdPlugin = getAdMobPlugin();
                     if (isNativeApp() && AdPlugin) {
-                        showSplashOverlay();
                         
-                        let resumeFinished = false;
-                        const onResumeDismissed = () => {
-                            if (resumeFinished) return;
-                            resumeFinished = true;
-                            removeAppSplashScreenAndInitPush();
-                        };
+                        // 1. Hide existing ads immediately so they don't break the splash overlay
+                        try { if (AdPlugin.hideBanner) await AdPlugin.hideBanner(); } catch(e){}
+                        await hideCurrentNativeAd();
+                        
+                        // 2. Show the Splash Image and Spinner
+                        showSplashOverlay();
+                        isHandlingResumeAd = true;
+                        
+                        const failsafe = setTimeout(() => {
+                            onGlobalAppOpenAdClosed();
+                        }, 10000);
 
                         try {
-                            if (AdPlugin.addListener) {
-                                AdPlugin.addListener('appOpenAdDismissed', onResumeDismissed);
-                                AdPlugin.addListener('appOpenAdFailedToShow', onResumeDismissed);
-                            }
                             await AdPlugin.loadAppOpen({ adUnitId: window.globalAdConfig.appOpenId });
                             await AdPlugin.showAppOpen();
-                            setTimeout(onResumeDismissed, 10000);
                         } catch (e) {
-                            onResumeDismissed();
+                            clearTimeout(failsafe);
+                            onGlobalAppOpenAdClosed();
                         }
                     }
                 }
@@ -823,7 +838,7 @@
             addNode(rawNewNewsData, "Fira Tech Tips");
             localCachedBroadcasts.sort((a, b) => b.resolvedTimestamp - a.resolvedTimestamp);
             
-            if (splashDismissed) {
+            if (appIsReadyForContent) {
                 renderFilteredBroadcasts();
             }
         }
@@ -957,7 +972,7 @@
         }
 
         async function renderFilteredBroadcasts() {
-            if (!splashDismissed) return;
+            if (!appIsReadyForContent) return;
             
             const container = document.getElementById("broadcastsContainer");
             if (!container) return;
