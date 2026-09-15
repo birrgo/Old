@@ -91,6 +91,20 @@ jobs:
           if [ -f node_modules/capacitor-admob-nextgen/scripts/admob-native.js ]; then node node_modules/capacitor-admob-nextgen/scripts/admob-native.js; fi
           sed -i '/<application/i \    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />' android/app/src/main/AndroidManifest.xml
 
+      - name: Set Custom App and Notification Icons
+        run: |
+          # 1. Set OneSignal Notification Icons (s2.png)
+          mkdir -p android/app/src/main/res/drawable
+          cp s2.png android/app/src/main/res/drawable/ic_stat_onesignal_default.png
+          cp s2.png android/app/src/main/res/drawable/ic_onesignal_large_icon_default.png
+          
+          # 2. Set Main App Icons (s.png) across all Android resolution folders
+          for dir in mipmap-mdpi mipmap-hdpi mipmap-xhdpi mipmap-xxhdpi mipmap-xxxhdpi; do
+            cp s.png android/app/src/main/res/$dir/ic_launcher.png
+            cp s.png android/app/src/main/res/$dir/ic_launcher_round.png
+            cp s.png android/app/src/main/res/$dir/ic_launcher_foreground.png
+          done
+
       - name: Target Android SDK 36
         run: |
           if [ -f android/variables.gradle ]; then
