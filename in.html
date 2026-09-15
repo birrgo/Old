@@ -159,6 +159,16 @@
         </div>
 
         <main class="app-content" id="mainContentArea">
+            
+            <!-- HARDCODED NATIVE AD CARD: ALWAYS VISIBLE IMMEDIATELY -->
+            <article class="native-ad-wrapper sticky-ad-container" id="staticNativeAdContainer">
+                <div class="native-ad-header">
+                    <span class="native-ad-badge">Advertisement</span>
+                    <span class="native-ad-location">Sponsored</span>
+                </div>
+                <div id="native-feed-ad-sticky" class="native-ad-placeholder"></div>
+            </article>
+
             <div class="broadcasts-container" id="broadcastsContainer">
                 <div class="featured-broadcast-card"><h2 class="broadcast-title" style="font-size:14px; text-align:center; color:var(--text-muted);">Connecting to Node...</h2></div>
             </div>
@@ -219,11 +229,18 @@
         const escapeHTML = s => String(s || "").replace(/[&<>'"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[m]));
 
         async function fetchUserIPLocation() {
+            const updateUI = (loc) => {
+                const locSpan = document.querySelector('#staticNativeAdContainer .native-ad-location');
+                if (locSpan && loc) locSpan.innerText = `${escapeHTML(loc.city)}, ${escapeHTML(loc.country || loc.country_name)}`;
+            };
+
             const cachedData = localStorage.getItem('shikela_user_location');
             if (cachedData) {
                 const parsed = JSON.parse(cachedData);
                 if (Date.now() - parsed.timestamp < 3600000) { 
-                    userLocationData = parsed; return parsed;
+                    userLocationData = parsed;
+                    updateUI(parsed);
+                    return parsed;
                 }
             }
             try {
@@ -231,6 +248,7 @@
                 const data = await response.json();
                 userLocationData = { ip: data.ip, city: data.city, country: data.country_name, timestamp: Date.now() };
                 localStorage.setItem('shikela_user_location', JSON.stringify(userLocationData));
+                updateUI(userLocationData);
                 return userLocationData;
             } catch (error) { return null; }
         }
@@ -364,6 +382,24 @@
                 if (!snapshot.exists()) return;
                 const adData = snapshot.val();
                 window.globalAdConfig = { status: String(adData.adStatus).toUpperCase() === "TRUE" || String(adData.adStatus).toUpperCase() === "ON", bannerId: adData.adMobBannerUnitId, interstitialId: adData.adMobInterstitialUnitId, nativeId: adData.adMobNativeUnitId, appOpenId: adData.adMobAppOpenUnitId, placements: adData.placements || {} };
+                
+                // Manage Static Native Ad container visibility
+                const staticNativeAdContainer = document.getElementById('staticNativeAdContainer');
+                if (window.globalAdConfig.status && window.globalAdConfig.placements?.nativeAdPostList && window.globalAdConfig.nativeId && isNativeApp() && getAdMobPlugin()) {
+                    if (staticNativeAdContainer) {
+                        staticNativeAdContainer.style.display = 'flex';
+                        initializeNativeAdObserver();
+                        const adPlaceholderNode = document.getElementById('native-feed-ad-sticky');
+                        if (window.nativeAdObserver && adPlaceholderNode) {
+                            window.nativeAdObserver.observe(adPlaceholderNode);
+                        }
+                    }
+                } else {
+                    if (staticNativeAdContainer) {
+                        staticNativeAdContainer.style.display = 'none';
+                    }
+                }
+
                 if (!window.globalAdConfig.status) return;
 
                 const AdPlugin = getAdMobPlugin();
@@ -656,20 +692,6 @@
                     </article>
                 `;
                 return;
-            }
-
-            const nativeEnabled = window.globalAdConfig?.placements?.nativeAdPostList && window.globalAdConfig?.nativeId && isNativeApp() && getAdMobPlugin();
-            if (nativeEnabled) {
-                const adDivId = `native-feed-ad-sticky`;
-                const nativeAdContainer = document.createElement("article");
-                nativeAdContainer.className = "native-ad-wrapper sticky-ad-container";
-                const locationText = userLocationData ? `${escapeHTML(userLocationData.city)}, ${escapeHTML(userLocationData.country)}` : "Localized Ad";
-                nativeAdContainer.innerHTML = `
-                    <div class="native-ad-header"><span class="native-ad-badge">Advertisement</span><span class="native-ad-location">${locationText}</span></div>
-                    <div id="${adDivId}" class="native-ad-placeholder"></div>
-                `;
-                container.appendChild(nativeAdContainer);
-                if (window.nativeAdObserver) window.nativeAdObserver.observe(nativeAdContainer.querySelector(`#${adDivId}`));
             }
 
             filtered.forEach((item) => {

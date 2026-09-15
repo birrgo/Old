@@ -367,7 +367,7 @@
         <main class="app-content" id="mainContentArea">
             
             <!-- HARDCODED NATIVE AD CARD: ALWAYS VISIBLE IMMEDIATELY -->
-            <article class="native-ad-wrapper sticky-ad-container" id="staticNativeAdContainer" style="display: none;">
+            <article class="native-ad-wrapper sticky-ad-container" id="staticNativeAdContainer">
                 <div class="native-ad-header">
                     <span class="native-ad-badge">Advertisement</span>
                     <span class="native-ad-location">Sponsored</span>
@@ -632,16 +632,22 @@
                 
                 if (!window.globalAdConfig.status) { onGlobalAppOpenAdClosed(); return; }
 
-                // Enable Static Native Ad unconditionally right away if configured
+                // Manage Static Native Ad container visibility
+                const staticNativeAdContainer = document.getElementById('staticNativeAdContainer');
+
                 if (window.globalAdConfig.placements?.nativeAdPostList && window.globalAdConfig.nativeId && isNativeApp() && getAdMobPlugin()) {
-                    const staticNativeAdContainer = document.getElementById('staticNativeAdContainer');
                     if (staticNativeAdContainer) {
-                        staticNativeAdContainer.style.display = 'flex';
+                        // Leave it visible and start observing for the AdMob plugin
                         initializeNativeAdObserver();
                         const adPlaceholderNode = document.getElementById('native-feed-ad-sticky');
                         if (window.nativeAdObserver && adPlaceholderNode) {
                             window.nativeAdObserver.observe(adPlaceholderNode);
                         }
+                    }
+                } else {
+                    // Hide the placeholder if ads are disabled or if running in a standard web browser
+                    if (staticNativeAdContainer) {
+                        staticNativeAdContainer.style.display = 'none';
                     }
                 }
 
