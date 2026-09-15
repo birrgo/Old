@@ -38,6 +38,32 @@
             background-size: 20px 20px;
         }
 
+        /* --- SPLASH SCREEN OVERLAY --- */
+        #appSplashOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #ffffff;
+            z-index: 999999;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.3s ease-out, visibility 0.3s ease-out;
+        }
+        #appSplashOverlay img {
+            width: 120px;
+            height: auto;
+            animation: pulseSplash 2s infinite ease-in-out;
+        }
+        @keyframes pulseSplash {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.05); opacity: 0.8; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
         .app-view {
             width: 100%;
             height: 100%;
@@ -143,6 +169,12 @@
             box-shadow: var(--card-shadow);
             position: relative;
             overflow: hidden;
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
         .featured-broadcast-card::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: var(--primary-gradient); }
@@ -170,7 +202,7 @@
         .broadcast-title { font-size: 16px; font-weight: 800; color: var(--text-dark); line-height: 1.35; margin-bottom: 6px; }
         .broadcast-body-text { font-size: 13.5px; font-weight: 500; color: #475569; line-height: 1.55; white-space: pre-wrap; }
 
-        .verified-footer-shield { text-align: center; padding: 24px 0 16px 0; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+        .verified-footer-shield { text-align: center; padding: 24px 0 16px 0; display: flex; flex-direction: column; align-items: center; gap: 2px; display: none; }
         .footer-shield-text { font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.8px; }
 
         /* --- MENUS & OVERLAYS --- */
@@ -219,6 +251,12 @@
 </head>
 <body>
     <script src="native-bridge.js"></script>
+    
+    <!-- INITIAL SPLASH SCREEN OVERLAY -->
+    <div id="appSplashOverlay">
+        <img src="s1.png" alt="Loading Fira Tech..." onerror="this.style.display='none'">
+    </div>
+
     <div class="app-view">
         <svg class="bg-wave bg-wave-top" viewBox="0 0 375 200" preserveAspectRatio="none" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M0 0H375V75C375 75 280 155 0 95V0Z" fill="url(#paint0_linear)"/>
@@ -283,9 +321,9 @@
 
         <main class="app-content" id="mainContentArea">
             <div class="broadcasts-container" id="broadcastsContainer">
-                <div class="featured-broadcast-card"><h2 class="broadcast-title" style="font-size:14px; text-align:center; color:var(--text-muted);">Connecting to Secure Node...</h2></div>
+                <div class="featured-broadcast-card"><h2 class="broadcast-title" style="font-size:14px; text-align:center; color:var(--text-muted);">Fetching Latest Updates...</h2></div>
             </div>
-            <footer class="verified-footer-shield"><span class="footer-shield-text">Fira Tech Matrix Verified</span></footer>
+            <footer class="verified-footer-shield" id="endOfListShield"><span class="footer-shield-text">Fira Tech Matrix Verified</span></footer>
         </main>
 
         <div class="ad-container-wrapper" id="adContainerWrapper" style="display:none;">
@@ -320,6 +358,11 @@
         let isOpeningArticle = false, bannerCreated = false;
         let userLocationData = null;
         
+        // --- PAGINATION VARIABLES ---
+        let currentPage = 0;
+        const ITEMS_PER_PAGE = 3;
+        let isRenderingBatch = false;
+        
         window.globalAdConfig = {};
         window.nativeAdObserver = null;
         let nativeAdObserverStarted = false, activeNativeAdId = null, nativeAdOperation = Promise.resolve(), currentAdGeneration = 0, requestedNativeAdId = null;
@@ -328,6 +371,22 @@
 
         const urlParams = new URLSearchParams(window.location.search);
         const isAdminMode = urlParams.get('admin') === 'true';
+
+        // Helper to quickly hide the splash screen
+        function removeAppSplashScreen() {
+            const splash = document.getElementById("appSplashOverlay");
+            if (splash) {
+                splash.style.opacity = '0';
+                splash.style.visibility = 'hidden';
+                setTimeout(() => splash.remove(), 350);
+            }
+            if (isNativeApp() && window.Capacitor?.Plugins?.SplashScreen) {
+                window.Capacitor.Plugins.SplashScreen.hide().catch(()=>{});
+            }
+        }
+
+        // Failsafe: Remove splash screen after 5.5 seconds regardless of ad load time
+        setTimeout(() => removeAppSplashScreen(), 5500);
 
         async function fetchUserIPLocation() {
             const cachedData = localStorage.getItem('firatech_user_location');
@@ -345,7 +404,6 @@
                 localStorage.setItem('firatech_user_location', JSON.stringify(userLocationData));
                 return userLocationData;
             } catch (error) {
-                console.warn("Could not fetch IP location", error);
                 return null;
             }
         }
@@ -353,41 +411,30 @@
         function getAdMobPlugin() { return window.AdMobPlugin || null; }
         function isNativeApp() { return typeof window !== "undefined" && window.Capacitor && typeof window.Capacitor.isNativePlatform === "function" ? window.Capacitor.isNativePlatform() : false; }
 
-        // ----- UPDATED ONESIGNAL NOTIFICATION INITIALIZATION -----
         function initializePushNotifications() {
             if (!isNativeApp()) return;
-            
             setTimeout(() => {
                 const OneSignal = window.OneSignal;
-                if (!OneSignal) {
-                    console.warn("OneSignal native plugin not found.");
-                    return;
-                }
+                if (!OneSignal) return;
                 
-                // Fetch App ID from Firebase Database dynamically
                 onValue(ref(db, `${APP_NODE_NAME}/oneSignal`), async (snapshot) => {
                     if (!snapshot.exists()) return;
                     const osData = snapshot.val();
                     if (!osData.appId) return;
-                    
                     try {
                         if (typeof OneSignal.initialize === 'function') {
                             await OneSignal.initialize(osData.appId);
-                            // This executes the native push permission popup on Android 13+
                             await OneSignal.Notifications.requestPermission(true);
                         }
-                    } catch (e) {
-                        console.error("OneSignal Init Error:", e);
-                    }
+                    } catch (e) { console.error("OneSignal Init Error:", e); }
                 }, { onlyOnce: true });
             }, 1500); 
         }
-        // ---------------------------------------------------------
 
         async function hideCurrentNativeAd() {
             const AdPlugin = getAdMobPlugin();
             if (!isNativeApp() || !AdPlugin || typeof AdPlugin.hideNativeAd !== "function") { activeNativeAdId = null; return; }
-            try { await AdPlugin.hideNativeAd(); } catch (error) { console.warn("Native ad hide warning:", error); }
+            try { await AdPlugin.hideNativeAd(); } catch (error) {}
             activeNativeAdId = null;
         }
 
@@ -426,7 +473,7 @@
                         return;
                     }
                     activeNativeAdId = elementId;
-                } catch (error) { console.error("Native feed ad creation failed:", error); }
+                } catch (error) {}
             });
             await nativeAdOperation;
         }
@@ -476,7 +523,7 @@
         document.addEventListener("DOMContentLoaded", async () => {
             await fetchUserIPLocation();
             fetchAdMobUnits(); 
-            initializePushNotifications(); // <-- Triggers OneSignal
+            initializePushNotifications();
             streamLiveAdminUpdatesLog(); 
             setupSearchEngineControls(); 
             initiateLiveInterfaceClocks(); 
@@ -497,7 +544,7 @@
                 if (!snapshot.exists()) return;
                 const adData = snapshot.val();
                 window.globalAdConfig = { status: String(adData.adStatus).toUpperCase() === "TRUE" || String(adData.adStatus).toUpperCase() === "ON", bannerId: adData.adMobBannerUnitId, interstitialId: adData.adMobInterstitialUnitId, nativeId: adData.adMobNativeUnitId, appOpenId: adData.adMobAppOpenUnitId, placements: adData.placements || {} };
-                if (!window.globalAdConfig.status) return;
+                if (!window.globalAdConfig.status) { removeAppSplashScreen(); return; }
 
                 const AdPlugin = getAdMobPlugin();
                 if (isNativeApp() && AdPlugin) {
@@ -505,12 +552,14 @@
                         try {
                             if (typeof AdPlugin.requestConsentInfo === "function") await AdPlugin.requestConsentInfo({ showFormIfRequired: true });
                             if (typeof AdPlugin.initialize === "function") await AdPlugin.initialize({ isTesting: true });
-                            triggerAppOpenAdStart(); triggerBannerAdHomePage();
+                            triggerAppOpenAdStart(); 
+                            triggerBannerAdHomePage();
                             if (localCachedBroadcasts.length > 0) renderFilteredBroadcasts();
-                        } catch (e) { console.log("AdMob Init Error:", e); }
+                        } catch (e) { removeAppSplashScreen(); }
                     })();
                 } else {
-                    triggerAppOpenAdStart(); triggerBannerAdHomePage();
+                    removeAppSplashScreen();
+                    triggerBannerAdHomePage();
                     if (localCachedBroadcasts.length > 0) renderFilteredBroadcasts();
                 }
             });
@@ -518,18 +567,26 @@
 
         async function triggerAppOpenAdStart() {
             if (sessionStorage.getItem('shikela_app_opened') === 'true') {
+                removeAppSplashScreen();
                 return;
             }
             
-            if (window.globalAdConfig?.placements?.appOpenAdStart && window.globalAdConfig?.appOpenId) {
+            const AdPlugin = getAdMobPlugin();
+            if (window.globalAdConfig?.placements?.appOpenAdStart && window.globalAdConfig?.appOpenId && isNativeApp() && AdPlugin) {
                 sessionStorage.setItem('shikela_app_opened', 'true');
-                const AdPlugin = getAdMobPlugin();
-                if (isNativeApp() && AdPlugin) {
-                    try {
-                        await AdPlugin.loadAppOpen({ adUnitId: window.globalAdConfig.appOpenId });
-                        await AdPlugin.showAppOpen();
-                    } catch (e) { console.error("App Open Ad Failed:", e); }
+                try {
+                    // Listeners to ensure splash screen drops immediately when ad closes/fails
+                    if(AdPlugin.addListener) {
+                        AdPlugin.addListener('appOpenAdDismissed', () => removeAppSplashScreen());
+                        AdPlugin.addListener('appOpenAdFailedToShow', () => removeAppSplashScreen());
+                    }
+                    await AdPlugin.loadAppOpen({ adUnitId: window.globalAdConfig.appOpenId });
+                    await AdPlugin.showAppOpen();
+                } catch (e) { 
+                    removeAppSplashScreen(); 
                 }
+            } else {
+                removeAppSplashScreen();
             }
         }
 
@@ -543,7 +600,7 @@
                         try {
                             await AdPlugin.loadAppOpen({ adUnitId: window.globalAdConfig.appOpenId });
                             await AdPlugin.showAppOpen();
-                        } catch (e) { console.error("Resume Ad Failed:", e); }
+                        } catch (e) {}
                     }
                 }
             });
@@ -571,7 +628,7 @@
                         });
                         bannerCreated = true;
                     } else if (AdPlugin.showBanner) { await AdPlugin.showBanner(); }
-                } catch (e) { console.error("Banner Ad Failed:", e); }
+                } catch (e) {}
             } else if (adWrapper) {
                 adWrapper.style.display = "flex";
                 const preview = document.getElementById("admobPreviewBanner");
@@ -736,6 +793,13 @@
             contentArea.addEventListener('scroll', () => {
                 if (scrollTimeout) return;
                 scrollTimeout = setTimeout(() => {
+                    
+                    // --- 1. INFINITE SCROLL / PAGINATION LOGIC ---
+                    if (contentArea.scrollTop + contentArea.clientHeight >= contentArea.scrollHeight - 250) {
+                        loadNextBatchOfItems();
+                    }
+
+                    // --- 2. NATIVE AD RELOAD LOGIC ---
                     const cards = document.querySelectorAll('.featured-broadcast-card:not(.native-ad-wrapper)');
                     let passedCount = 0;
                     const stickyAd = document.querySelector('.sticky-ad-container');
@@ -755,23 +819,58 @@
                         }
                     }
                     scrollTimeout = null;
-                }, 250); 
+                }, 200); 
             });
+        }
+
+        // --- LAZY LOADING FUNCTION ---
+        function loadNextBatchOfItems() {
+            if (isRenderingBatch) return;
+            const container = document.getElementById("broadcastsContainer");
+            if (!container) return;
+
+            const startIndex = currentPage * ITEMS_PER_PAGE;
+            const endIndex = startIndex + ITEMS_PER_PAGE;
+            const itemsToRender = localCachedBroadcasts.slice(startIndex, endIndex);
+
+            if (itemsToRender.length === 0) {
+                document.getElementById("endOfListShield").style.display = "flex";
+                return; 
+            }
+
+            isRenderingBatch = true;
+            
+            const fragment = document.createDocumentFragment();
+            itemsToRender.forEach(item => {
+                const card = document.createElement("article");
+                card.className = "featured-broadcast-card";
+                card.innerHTML = buildSingleNewsCardHTML(item);
+                fragment.appendChild(card);
+            });
+
+            container.appendChild(fragment);
+            currentPage++;
+            isRenderingBatch = false;
         }
 
         async function renderFilteredBroadcasts() {
             const container = document.getElementById("broadcastsContainer");
             if (!container) return;
+            
             await clearActiveFeedAds();
             initializeNativeAdObserver();
-            container.innerHTML = "";
-            const filtered = localCachedBroadcasts; 
             
-            if (filtered.length === 0) {
+            // Reset for initial pagination
+            container.innerHTML = "";
+            currentPage = 0;
+            document.getElementById("endOfListShield").style.display = "none";
+            
+            if (localCachedBroadcasts.length === 0) {
                 container.innerHTML = `<article class="featured-broadcast-card"><h2 class="broadcast-title">No updates posted today.</h2></article>`;
                 return;
             }
 
+            // Setup Native Ad Wrapper
             const nativeEnabled = window.globalAdConfig?.placements?.nativeAdPostList && window.globalAdConfig?.nativeId && isNativeApp() && getAdMobPlugin();
             if (nativeEnabled) {
                 const adDivId = `native-feed-ad-sticky`;
@@ -796,12 +895,8 @@
                 }
             }
 
-            filtered.forEach(item => {
-                const card = document.createElement("article");
-                card.className = "featured-broadcast-card";
-                card.innerHTML = buildSingleNewsCardHTML(item);
-                container.appendChild(card);
-            });
+            // Execute first fast load of exactly 3 items
+            loadNextBatchOfItems();
         }
 
         function setupSearchEngineControls() {
