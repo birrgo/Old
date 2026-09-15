@@ -58,7 +58,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: #081B38; /* Solid background color when s1.png is hidden */
+            background: #081B38;
             z-index: 999999;
             transition: opacity 0.35s ease-out, visibility 0.35s ease-out;
             overflow: hidden;
@@ -365,8 +365,18 @@
         </div>
 
         <main class="app-content" id="mainContentArea">
+            
+            <!-- HARDCODED NATIVE AD CARD: ALWAYS VISIBLE IMMEDIATELY -->
+            <article class="native-ad-wrapper sticky-ad-container" id="staticNativeAdContainer" style="display: none;">
+                <div class="native-ad-header">
+                    <span class="native-ad-badge">Advertisement</span>
+                    <span class="native-ad-location">Sponsored</span>
+                </div>
+                <div id="native-feed-ad-sticky" class="native-ad-placeholder"></div>
+            </article>
+
             <div class="broadcasts-container" id="broadcastsContainer">
-                <!-- Starts empty. Nothing renders until Splash is done. -->
+                <!-- Posts will render here -->
             </div>
             <footer class="verified-footer-shield" id="endOfListShield"><span class="footer-shield-text">Fira Tech Matrix Verified</span></footer>
         </main>
@@ -401,7 +411,6 @@
 
         let rawShikelaNewsData = {}, rawNewNewsData = {}, localCachedBroadcasts = [];
         let isOpeningArticle = false, bannerCreated = false;
-        let userLocationData = null;
         
         let currentPage = 0;
         const ITEMS_PER_PAGE = 3;
@@ -429,32 +438,6 @@
             const spinner = document.querySelector('.splash-spinner');
             if (imgContainer) imgContainer.style.display = 'none';
             if (spinner) spinner.style.display = 'none';
-        }
-
-        function showSplashOverlay() {
-            let splash = document.getElementById("appSplashOverlay");
-            if (!splash) {
-                const div = document.createElement("div");
-                div.id = "appSplashOverlay";
-                div.innerHTML = `
-                    <div class="splash-image-container">
-                        <img src="s1.png" alt="Loading Fira Tech..." onerror="this.style.display='none'">
-                    </div>
-                    <div class="splash-spinner"></div>
-                `;
-                document.body.appendChild(div);
-                splash = div;
-            } else {
-                // Restore elements just in case they were hidden by previous app open ads
-                const imgContainer = splash.querySelector('.splash-image-container');
-                const spinner = splash.querySelector('.splash-spinner');
-                if (imgContainer) imgContainer.style.display = 'block';
-                if (spinner) spinner.style.display = 'block';
-            }
-            document.documentElement.classList.remove('no-splash');
-            splash.style.display = 'block';
-            splash.style.opacity = '1';
-            splash.style.visibility = 'visible';
         }
 
         function transitionToMainApp() {
@@ -512,26 +495,6 @@
                 try { await AdPlugin.showBanner(); } catch(e){}
             }
             restoreNativeAdIfApplicable();
-        }
-
-        async function fetchUserIPLocation() {
-            const cachedData = localStorage.getItem('firatech_user_location');
-            if (cachedData) {
-                const parsed = JSON.parse(cachedData);
-                if (Date.now() - parsed.timestamp < 3600000) { 
-                    userLocationData = parsed;
-                    return parsed;
-                }
-            }
-            try {
-                const response = await fetch('https://ipapi.co/json/');
-                const data = await response.json();
-                userLocationData = { ip: data.ip, city: data.city, country: data.country_name, timestamp: Date.now() };
-                localStorage.setItem('firatech_user_location', JSON.stringify(userLocationData));
-                return userLocationData;
-            } catch (error) {
-                return null;
-            }
         }
 
         function getAdMobPlugin() { return window.AdMobPlugin || null; }
@@ -645,10 +608,6 @@
         }
 
         document.addEventListener("DOMContentLoaded", () => {
-            // Initiate IP Location asynchronously so it doesn't block AdMob/Firebase loads
-            fetchUserIPLocation();
-            
-            // Execute fetching operations immediately and concurrently to speed up launch
             streamLiveAdminUpdatesLog(); 
             setupSearchEngineControls(); 
             initiateLiveInterfaceClocks(); 
@@ -673,6 +632,19 @@
                 
                 if (!window.globalAdConfig.status) { onGlobalAppOpenAdClosed(); return; }
 
+                // Enable Static Native Ad unconditionally right away if configured
+                if (window.globalAdConfig.placements?.nativeAdPostList && window.globalAdConfig.nativeId && isNativeApp() && getAdMobPlugin()) {
+                    const staticNativeAdContainer = document.getElementById('staticNativeAdContainer');
+                    if (staticNativeAdContainer) {
+                        staticNativeAdContainer.style.display = 'flex';
+                        initializeNativeAdObserver();
+                        const adPlaceholderNode = document.getElementById('native-feed-ad-sticky');
+                        if (window.nativeAdObserver && adPlaceholderNode) {
+                            window.nativeAdObserver.observe(adPlaceholderNode);
+                        }
+                    }
+                }
+
                 const AdPlugin = getAdMobPlugin();
                 if (isNativeApp() && AdPlugin) {
                     try {
@@ -686,14 +658,10 @@
                         }
 
                         if (!isSessionAlreadyStarted) {
-                            // Reduced failsafe timer to push the user to the app faster if ad network hangs
                             const failsafe = setTimeout(() => { onGlobalAppOpenAdClosed(); }, 5000);
-                            
                             await AdPlugin.loadAppOpen({ adUnitId: window.globalAdConfig.appOpenId });
                             
-                            // 🚀 FIX: Hide s1.png right before the ad is displayed to prevent background bleeding
                             clearSplashImageForAd(); 
-                            
                             await AdPlugin.showAppOpen();
                         } else {
                             onGlobalAppOpenAdClosed();
@@ -705,7 +673,7 @@
             }, { onlyOnce: true });
         }
 
-        // --- APP RESUME AD TRIGGER ---
+        // --- APP RESUME AD TRIGGER (MODIFIED TO NOT SHOW SPLASH) ---
         function setupAppResumeAdListener() {
             document.addEventListener("visibilitychange", async () => {
                 if (document.visibilityState !== "visible") return;
@@ -716,19 +684,15 @@
                         try { if (AdPlugin.hideBanner) await AdPlugin.hideBanner(); } catch(e){}
                         await hideCurrentNativeAd();
                         
-                        showSplashOverlay();
+                        // We intentionally DO NOT show the splash overlay here anymore. 
                         isHandlingResumeAd = true;
                         
                         const failsafe = setTimeout(() => {
                             onGlobalAppOpenAdClosed();
-                        }, 5000); // reduced timeout here too
+                        }, 5000); 
 
                         try {
                             await AdPlugin.loadAppOpen({ adUnitId: window.globalAdConfig.appOpenId });
-                            
-                            // 🚀 FIX: Hide s1.png right before resuming the ad
-                            clearSplashImageForAd();
-                            
                             await AdPlugin.showAppOpen();
                         } catch (e) {
                             clearTimeout(failsafe);
@@ -909,7 +873,9 @@
             showInterstitialAdMock(async () => {
                 const AdPlugin = getAdMobPlugin();
                 if (isNativeApp() && AdPlugin && AdPlugin.hideBanner) await AdPlugin.hideBanner().catch(e => console.log(e));
-                await clearActiveFeedAds();
+                
+                // Do not clear the static native ad observer entirely, just hide active
+                await hideCurrentNativeAd();
 
                 sessionStorage.setItem('shikela_current_article', JSON.stringify(item));
                 
@@ -991,9 +957,6 @@
             const container = document.getElementById("broadcastsContainer");
             if (!container) return;
             
-            await clearActiveFeedAds();
-            initializeNativeAdObserver();
-            
             container.innerHTML = "";
             currentPage = 0;
             document.getElementById("endOfListShield").style.display = "none";
@@ -1001,30 +964,6 @@
             if (localCachedBroadcasts.length === 0) {
                 container.innerHTML = `<article class="featured-broadcast-card"><h2 class="broadcast-title">No updates posted today.</h2></article>`;
                 return;
-            }
-
-            const nativeEnabled = window.globalAdConfig?.placements?.nativeAdPostList && window.globalAdConfig?.nativeId && isNativeApp() && getAdMobPlugin();
-            if (nativeEnabled) {
-                const adDivId = `native-feed-ad-sticky`;
-                const nativeAdContainer = document.createElement("article");
-                nativeAdContainer.className = "native-ad-wrapper sticky-ad-container";
-                
-                const locationText = userLocationData ? `${escapeHTML(userLocationData.city)}, ${escapeHTML(userLocationData.country)}` : "Localized Ad";
-                
-                nativeAdContainer.innerHTML = `
-                    <div class="native-ad-header">
-                        <span class="native-ad-badge">Advertisement</span>
-                        <span class="native-ad-location">${locationText}</span>
-                    </div>
-                    <div id="${adDivId}" class="native-ad-placeholder"></div>
-                `;
-                
-                container.appendChild(nativeAdContainer);
-
-                if (window.nativeAdObserver) {
-                    const adPlaceholderNode = nativeAdContainer.querySelector(`#${adDivId}`);
-                    window.nativeAdObserver.observe(adPlaceholderNode);
-                }
             }
 
             loadNextBatchOfItems();
