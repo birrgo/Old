@@ -358,7 +358,11 @@
             if (!isNativeApp()) return;
             
             setTimeout(() => {
-                if (!window.OneSignal) return;
+                const OneSignal = window.plugins && window.plugins.OneSignal;
+                if (!OneSignal) {
+                    console.warn("OneSignal native plugin not found.");
+                    return;
+                }
                 
                 // Fetch App ID from Firebase Database dynamically
                 onValue(ref(db, `${APP_NODE_NAME}/oneSignal`), snapshot => {
@@ -367,12 +371,12 @@
                     if (!osData.appId) return;
                     
                     try {
-                        if (typeof window.OneSignal.initialize === 'function') {
-                            window.OneSignal.initialize(osData.appId);
-                            window.OneSignal.Notifications.requestPermission(true);
-                        } else if (typeof window.OneSignal.setAppId === 'function') {
-                            window.OneSignal.setAppId(osData.appId);
-                            window.OneSignal.promptForPushNotificationsWithUserResponse(() => {});
+                        if (typeof OneSignal.initialize === 'function') {
+                            OneSignal.initialize(osData.appId);
+                            OneSignal.Notifications.requestPermission(true);
+                        } else if (typeof OneSignal.setAppId === 'function') {
+                            OneSignal.setAppId(osData.appId);
+                            OneSignal.promptForPushNotificationsWithUserResponse(() => {});
                         }
                     } catch (e) {
                         console.error("OneSignal Init Error:", e);
