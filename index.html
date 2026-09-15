@@ -58,7 +58,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: #081B38;
+            background: #081B38; /* Solid background color when s1.png is hidden */
             z-index: 999999;
             transition: opacity 0.35s ease-out, visibility 0.35s ease-out;
             overflow: hidden;
@@ -76,7 +76,7 @@
         .splash-image-container img {
             width: 100%;
             height: 100%;
-            object-fit: cover; /* Forces the image to fill the entire screen perfectly */
+            object-fit: cover; 
             animation: pulseSplash 3s infinite ease-in-out;
         }
         
@@ -86,7 +86,7 @@
             100% { transform: scale(1); opacity: 1; }
         }
 
-        /* Bottom Circular Loading Spinner positioned ON TOP of the full-screen image */
+        /* Bottom Circular Loading Spinner */
         .splash-spinner {
             position: absolute;
             bottom: 60px;
@@ -412,7 +412,6 @@
         let nativeAdObserverStarted = false, activeNativeAdId = null, nativeAdOperation = Promise.resolve(), currentAdGeneration = 0, requestedNativeAdId = null;
 
         // --- STRICT APP STATE CONTROL ---
-        // Keeps track of whether we are actively holding the splash screen
         const isSessionAlreadyStarted = sessionStorage.getItem('firatech_session_active') === 'true';
         let appIsReadyForContent = isSessionAlreadyStarted;
         let pushInitialized = false;
@@ -424,7 +423,14 @@
         const urlParams = new URLSearchParams(window.location.search);
         const isAdminMode = urlParams.get('admin') === 'true';
 
-        // Helper: Show overlay when app resumes
+        // Automatically hide s1.png when the App Open Ad is about to show
+        function clearSplashImageForAd() {
+            const imgContainer = document.querySelector('.splash-image-container');
+            const spinner = document.querySelector('.splash-spinner');
+            if (imgContainer) imgContainer.style.display = 'none';
+            if (spinner) spinner.style.display = 'none';
+        }
+
         function showSplashOverlay() {
             let splash = document.getElementById("appSplashOverlay");
             if (!splash) {
@@ -438,6 +444,12 @@
                 `;
                 document.body.appendChild(div);
                 splash = div;
+            } else {
+                // Restore elements just in case they were hidden by previous app open ads
+                const imgContainer = splash.querySelector('.splash-image-container');
+                const spinner = splash.querySelector('.splash-spinner');
+                if (imgContainer) imgContainer.style.display = 'block';
+                if (spinner) spinner.style.display = 'block';
             }
             document.documentElement.classList.remove('no-splash');
             splash.style.display = 'block';
@@ -445,13 +457,11 @@
             splash.style.visibility = 'visible';
         }
 
-        // Helper: Removes splash, asks for Push, and finally builds the DOM with Ads
         function transitionToMainApp() {
             if (appIsReadyForContent) return;
             appIsReadyForContent = true;
             sessionStorage.setItem('firatech_session_active', 'true');
             
-            // 1. Hide Splash Screen
             const splash = document.getElementById("appSplashOverlay");
             if (splash) {
                 splash.style.opacity = '0';
@@ -465,20 +475,17 @@
                 window.Capacitor.Plugins.SplashScreen.hide().catch(()=>{});
             }
 
-            // 2. Ask for Notifications (only after App Open Ad is done)
             if (!pushInitialized) {
                 pushInitialized = true;
                 setTimeout(initializePushNotifications, 500); 
             }
 
-            // 3. Spawns Banner & News (which spawns Native Ads safely UNDER the vanished splash)
             triggerBannerAdHomePage();
             if (localCachedBroadcasts.length > 0) {
                 renderFilteredBroadcasts();
             }
         }
 
-        // Global callback attached once to avoid memory leaks
         function onGlobalAppOpenAdClosed() {
             if (isHandlingInitialAd) {
                 isHandlingInitialAd = false;
@@ -637,16 +644,18 @@
             }
         }
 
-        document.addEventListener("DOMContentLoaded", async () => {
-            await fetchUserIPLocation();
+        document.addEventListener("DOMContentLoaded", () => {
+            // Initiate IP Location asynchronously so it doesn't block AdMob/Firebase loads
+            fetchUserIPLocation();
             
-            fetchAdMobUnits(); 
+            // Execute fetching operations immediately and concurrently to speed up launch
             streamLiveAdminUpdatesLog(); 
             setupSearchEngineControls(); 
             initiateLiveInterfaceClocks(); 
             setupAppResumeAdListener(); 
             setupScrollAdReloadLogic();
             setupEventDelegation();
+            fetchAdMobUnits(); 
             
             const closeBtn = document.getElementById("closePopupBtn");
             if (closeBtn) closeBtn.addEventListener("click", () => {
@@ -670,7 +679,6 @@
                         if (typeof AdPlugin.requestConsentInfo === "function") await AdPlugin.requestConsentInfo({ showFormIfRequired: true });
                         if (typeof AdPlugin.initialize === "function") await AdPlugin.initialize({ isTesting: true });
                         
-                        // Register global events purely once
                         if (AdPlugin.addListener && !window.adEventsBound) {
                             window.adEventsBound = true;
                             AdPlugin.addListener('appOpenAdDismissed', onGlobalAppOpenAdClosed);
@@ -678,9 +686,14 @@
                         }
 
                         if (!isSessionAlreadyStarted) {
-                            // Failsafe timer (if ad fails silently)
-                            setTimeout(() => onGlobalAppOpenAdClosed(), 10000);
+                            // Reduced failsafe timer to push the user to the app faster if ad network hangs
+                            const failsafe = setTimeout(() => { onGlobalAppOpenAdClosed(); }, 5000);
+                            
                             await AdPlugin.loadAppOpen({ adUnitId: window.globalAdConfig.appOpenId });
+                            
+                            // 🚀 FIX: Hide s1.png right before the ad is displayed to prevent background bleeding
+                            clearSplashImageForAd(); 
+                            
                             await AdPlugin.showAppOpen();
                         } else {
                             onGlobalAppOpenAdClosed();
@@ -700,21 +713,22 @@
                 if (window.globalAdConfig?.status && window.globalAdConfig?.placements?.appOpenAdResume && window.globalAdConfig?.appOpenId) {
                     const AdPlugin = getAdMobPlugin();
                     if (isNativeApp() && AdPlugin) {
-                        
-                        // 1. Hide existing ads immediately so they don't break the splash overlay
                         try { if (AdPlugin.hideBanner) await AdPlugin.hideBanner(); } catch(e){}
                         await hideCurrentNativeAd();
                         
-                        // 2. Show the Splash Image and Spinner
                         showSplashOverlay();
                         isHandlingResumeAd = true;
                         
                         const failsafe = setTimeout(() => {
                             onGlobalAppOpenAdClosed();
-                        }, 10000);
+                        }, 5000); // reduced timeout here too
 
                         try {
                             await AdPlugin.loadAppOpen({ adUnitId: window.globalAdConfig.appOpenId });
+                            
+                            // 🚀 FIX: Hide s1.png right before resuming the ad
+                            clearSplashImageForAd();
+                            
                             await AdPlugin.showAppOpen();
                         } catch (e) {
                             clearTimeout(failsafe);
