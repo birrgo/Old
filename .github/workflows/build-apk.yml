@@ -129,11 +129,11 @@ jobs:
           </LinearLayout>
           EOF
           
-          # Create the Java Extender using IDisplayableNotification
+          # Create the Java Extender using IDisplayableNotification (OneSignal v5 API)
           mkdir -p android/app/src/main/java/com/firatech/app
           cat << 'EOF' > android/app/src/main/java/com/firatech/app/NotificationExtender.java
           package com.firatech.app;
-          
+
           import android.content.Context;
           import android.graphics.Bitmap;
           import android.graphics.BitmapFactory;
@@ -144,7 +144,7 @@ jobs:
           import org.json.JSONObject;
           import java.net.URL;
           import java.io.InputStream;
-          
+
           public class NotificationExtender implements INotificationServiceExtension {
               
               private Bitmap downloadImage(String urlString) {
