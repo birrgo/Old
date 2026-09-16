@@ -234,7 +234,19 @@ jobs:
 
       - name: Fix Obsolete Package Attributes in Manifests
         run: |
-          find node_modules -name "AndroidManifest.xml" -exec sed -i '/package="/d' {} +
+          python3 -c "
+          import os, re
+          for root, dirs, files in os.walk('node_modules'):
+              for file in files:
+                  if file == 'AndroidManifest.xml':
+                      path = os.path.join(root, file)
+                      with open(path, 'r', encoding='utf-8', errors='ignore') as f:
+                          content = f.read()
+                      new_content = re.sub(r'\s+package\s*=\s*[\"\'][^\"\']*[\"\']', '', content)
+                      if new_content != content:
+                          with open(path, 'w', encoding='utf-8') as f:
+                              f.write(new_content)
+          "
 
       - name: Build Installable Debug APK
         run: |
