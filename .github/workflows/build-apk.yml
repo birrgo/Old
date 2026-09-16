@@ -28,6 +28,18 @@ jobs:
           if [ ! -f package.json ]; then npm init -y; fi
           npm install @capacitor/core@8 @capacitor/cli@8 @capacitor/android@8 @capacitor/splash-screen@8 capacitor-admob-nextgen@1.2.9 @onesignal/capacitor-plugin esbuild
 
+      - name: Initialize AdMob SDK Variables
+        run: |
+          node -e "
+          const fs = require('fs');
+          let pkg = JSON.parse(fs.readFileSync('package.json'));
+          pkg.admob = {
+            androidAppId: '${{ env.ADMOB_APP_ID }}',
+            enableNativeAds: { android: true } 
+          };
+          fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
+          "
+
       - name: Bundle Web Files & Compile Native Bridge
         run: |
           rm -rf www
@@ -45,26 +57,24 @@ jobs:
 
       - name: Create Capacitor Config
         run: |
-          cat << 'EOF' > capacitor.config.json
-          {
-            "appId": "${{ env.PACKAGE_NAME }}",
-            "appName": "${{ env.APP_NAME }}",
-            "webDir": "www",
-            "bundledWebRuntime": false,
-            "plugins": {
-              "SplashScreen": {
-                "launchShowDuration": 3000,
-                "launchAutoHide": true,
-                "backgroundColor": "#001a66",
-                "androidSplashResourceName": "splash",
-                "androidScaleType": "CENTER_CROP",
-                "splashFullScreen": true,
-                "splashImmersive": true,
-                "showSpinner": false
-              }
-            }
-          }
-          EOF
+          echo '{' > capacitor.config.json
+          echo '  "appId": "${{ env.PACKAGE_NAME }}",' >> capacitor.config.json
+          echo '  "appName": "${{ env.APP_NAME }}",' >> capacitor.config.json
+          echo '  "webDir": "www",' >> capacitor.config.json
+          echo '  "bundledWebRuntime": false,' >> capacitor.config.json
+          echo '  "plugins": {' >> capacitor.config.json
+          echo '    "SplashScreen": {' >> capacitor.config.json
+          echo '      "launchShowDuration": 3000,' >> capacitor.config.json
+          echo '      "launchAutoHide": true,' >> capacitor.config.json
+          echo '      "backgroundColor": "#001a66",' >> capacitor.config.json
+          echo '      "androidSplashResourceName": "splash",' >> capacitor.config.json
+          echo '      "androidScaleType": "CENTER_CROP",' >> capacitor.config.json
+          echo '      "splashFullScreen": true,' >> capacitor.config.json
+          echo '      "splashImmersive": true,' >> capacitor.config.json
+          echo '      "showSpinner": false' >> capacitor.config.json
+          echo '    }' >> capacitor.config.json
+          echo '  }' >> capacitor.config.json
+          echo '}' >> capacitor.config.json
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -77,115 +87,125 @@ jobs:
         run: |
           npx cap add android
           npx cap sync android
+          if [ -f node_modules/capacitor-admob-nextgen/scripts/admob-manifest.js ]; then node node_modules/capacitor-admob-nextgen/scripts/admob-manifest.js; fi
+          if [ -f node_modules/capacitor-admob-nextgen/scripts/admob-native.js ]; then node node_modules/capacitor-admob-nextgen/scripts/admob-native.js; fi
+          sed -i '/<application/i \    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />' android/app/src/main/AndroidManifest.xml
+          sed -i '/<application/i \    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />' android/app/src/main/AndroidManifest.xml
 
-      - name: Inject OneSignal Gradle Dependency & Manifest Meta-Data
+      - name: Create Native Overlay Service
         run: |
-          # 1. Add OneSignal SDK dependency to app build.gradle for custom Java Extender compilation
-          sed -i '/dependencies {/a \    implementation "com.onesignal:OneSignal:[5.0.0, 5.99.99]"' android/app/build.gradle
-
-          # 2. Inject POST_NOTIFICATIONS permission before <application>
-          sed -i 's|<application|<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <application|g' android/app/src/main/AndroidManifest.xml
-
-          # 3. Inject OneSignal Extender and AdMob App ID inside <application>
-          sed -i 's|</application>|        <meta-data android:name="com.onesignal.NotificationServiceExtension" android:value="com.firatech.app.NotificationExtender" />\n        <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="${{ env.ADMOB_APP_ID }}" />\n    </application>|g' android/app/src/main/AndroidManifest.xml
-
-      - name: Inject Custom Notification Layout & Logic
-        run: |
-          # Create the Pinterest-style XML Grid Layout
-          mkdir -p android/app/src/main/res/layout
-          cat << 'EOF' > android/app/src/main/res/layout/custom_heads_up.xml
-          <?xml version="1.0" encoding="utf-8"?>
-          <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-              android:layout_width="match_parent"
-              android:layout_height="128dp"
-              android:orientation="horizontal"
-              android:background="#000000">
-              <ImageView
-                  android:id="@+id/img_left"
-                  android:layout_width="0dp"
-                  android:layout_height="match_parent"
-                  android:layout_weight="1.5"
-                  android:scaleType="centerCrop"
-                  android:layout_marginEnd="2dp"/>
-              <LinearLayout
-                  android:layout_width="0dp"
-                  android:layout_height="match_parent"
-                  android:layout_weight="1"
-                  android:orientation="vertical">
-                  <ImageView
-                      android:id="@+id/img_top_right"
-                      android:layout_width="match_parent"
-                      android:layout_height="0dp"
-                      android:layout_weight="1"
-                      android:scaleType="centerCrop"
-                      android:layout_marginBottom="2dp"/>
-                  <ImageView
-                      android:id="@+id/img_bottom_right"
-                      android:layout_width="match_parent"
-                      android:layout_height="0dp"
-                      android:layout_weight="1"
-                      android:scaleType="centerCrop" />
-              </LinearLayout>
-          </LinearLayout>
-          EOF
+          SERVICE_DIR="android/app/src/main/java/com/firatech/app"
+          mkdir -p $SERVICE_DIR
           
-          # Create the Java Extender using IDisplayableNotification (OneSignal v5 API)
-          mkdir -p android/app/src/main/java/com/firatech/app
-          cat << 'EOF' > android/app/src/main/java/com/firatech/app/NotificationExtender.java
-          package com.firatech.app;
+          cat << 'EOF' > $SERVICE_DIR/PopupOverlayService.kt
+          package com.firatech.app
 
-          import android.content.Context;
-          import android.graphics.Bitmap;
-          import android.graphics.BitmapFactory;
-          import android.widget.RemoteViews;
-          import com.onesignal.notifications.INotificationServiceExtension;
-          import com.onesignal.notifications.INotificationReceivedEvent;
-          import com.onesignal.notifications.IDisplayableNotification;
-          import org.json.JSONObject;
-          import java.net.URL;
-          import java.io.InputStream;
+          import android.app.Service
+          import android.content.Intent
+          import android.graphics.PixelFormat
+          import android.os.Build
+          import android.os.IBinder
+          import android.view.Gravity
+          import android.view.LayoutInflater
+          import android.view.View
+          import android.view.WindowManager
+          import android.widget.ImageView
+          import android.widget.Button
+          import com.bumptech.glide.Glide
 
-          public class NotificationExtender implements INotificationServiceExtension {
-              
-              private Bitmap downloadImage(String urlString) {
-                  try {
-                      InputStream in = new URL(urlString).openStream();
-                      return BitmapFactory.decodeStream(in);
-                  } catch (Exception e) {
-                      return null;
+          class PopupOverlayService : Service() {
+              private lateinit var windowManager: WindowManager
+              private lateinit var popupView: View
+
+              override fun onBind(intent: Intent?): IBinder? = null
+
+              override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+                  val imageUrl = intent?.getStringExtra("image_url") ?: ""
+                  
+                  windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
+                  val layoutFlag = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                      WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+                  } else {
+                      WindowManager.LayoutParams.TYPE_PHONE
                   }
+
+                  val params = WindowManager.LayoutParams(
+                      WindowManager.LayoutParams.MATCH_PARENT,
+                      WindowManager.LayoutParams.WRAP_CONTENT,
+                      layoutFlag,
+                      WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or 
+                      WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or 
+                      WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON,
+                      PixelFormat.TRANSLUCENT
+                  )
+                  params.gravity = Gravity.CENTER
+
+                  popupView = LayoutInflater.from(this).inflate(R.layout.popup_overlay_layout, null)
+                  val imageView = popupView.findViewById<ImageView>(R.id.popupImage)
+                  val closeBtn = popupView.findViewById<Button>(R.id.closeBtn)
+
+                  if (imageUrl.isNotEmpty()) {
+                      Glide.with(this).load(imageUrl).into(imageView)
+                  }
+
+                  closeBtn.setOnClickListener {
+                      if (::popupView.isInitialized) {
+                          windowManager.removeView(popupView)
+                      }
+                      stopSelf()
+                  }
+
+                  windowManager.addView(popupView, params)
+                  return START_NOT_STICKY
               }
 
-              @Override
-              public void onNotificationReceived(INotificationReceivedEvent event) {
-                  IDisplayableNotification notification = event.getNotification();
-                  Context context = event.getContext();
-                  
-                  RemoteViews customView = new RemoteViews(context.getPackageName(), R.layout.custom_heads_up);
-                  
-                  try {
-                      JSONObject data = notification.getAdditionalData();
-                      if (data != null) {
-                          Bitmap bmpLeft = downloadImage(data.optString("grid_1"));
-                          if (bmpLeft != null) customView.setImageViewBitmap(R.id.img_left, bmpLeft);
-                          
-                          Bitmap bmpTopRight = downloadImage(data.optString("grid_2"));
-                          if (bmpTopRight != null) customView.setImageViewBitmap(R.id.img_top_right, bmpTopRight);
-                          
-                          Bitmap bmpBottomRight = downloadImage(data.optString("grid_3"));
-                          if (bmpBottomRight != null) customView.setImageViewBitmap(R.id.img_bottom_right, bmpBottomRight);
+              override fun onDestroy() {
+                  super.onDestroy()
+                  if (::popupView.isInitialized) {
+                      try {
+                          windowManager.removeView(popupView)
+                      } catch (e: Exception) {
+                          e.printStackTrace()
                       }
-                  } catch (Exception e) {
-                      e.printStackTrace();
                   }
-                  
-                  notification.setExtender(builder -> {
-                      builder.setCustomHeadsUpContentView(customView);
-                      return builder;
-                  });
               }
           }
           EOF
+
+      - name: Create Popup XML Layout
+        run: |
+          LAYOUT_DIR="android/app/src/main/res/layout"
+          mkdir -p $LAYOUT_DIR
+          
+          cat << 'EOF' > $LAYOUT_DIR/popup_overlay_layout.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:layout_width="match_parent"
+              android:layout_height="wrap_content"
+              android:orientation="vertical"
+              android:background="@android:drawable/dialog_holo_light_frame"
+              android:padding="16dp"
+              android:gravity="center">
+
+              <ImageView
+                  android:id="@+id/popupImage"
+                  android:layout_width="300dp"
+                  android:layout_height="300dp"
+                  android:scaleType="centerCrop"
+                  android:contentDescription="Urgent Notification Image" />
+
+              <Button
+                  android:id="@+id/closeBtn"
+                  android:layout_width="wrap_content"
+                  android:layout_height="wrap_content"
+                  android:layout_marginTop="12dp"
+                  android:text="Dismiss" />
+          </LinearLayout>
+          EOF
+
+      - name: Register Service in Manifest
+        run: |
+          sed -i '/<\/application>/i \    <service android:name=".PopupOverlayService" android:exported="false" />' android/app/src/main/AndroidManifest.xml
 
       - name: Set Custom App and Notification Icons
         run: |
@@ -247,11 +267,12 @@ jobs:
               "app_id": "${{ secrets.ONESIGNAL_APP_ID }}",
               "included_segments": ["Subscribed Users"],
               "headings": {"en": "${{ env.APP_NAME }} Updated!"},
-              "contents": {"en": "Check out the new layout!"},
+              "contents": {"en": "The brand new app is almost here. Be the first to join the movement!"},
+              "large_icon": "https://hulum.online/push.png",
+              "big_picture": "https://hulum.online/push.png",
               "android_channel_id": "2c87aaaf-d24f-4855-a992-3d749a5a016f",
               "data": {
-                 "grid_1": "https://hulum.online/push.png",
-                 "grid_2": "https://hulum.online/push_2.png",
-                 "grid_3": "https://hulum.online/push_3.png"
+                "image_url": "https://hulum.online/push.png",
+                "action": "show_popup"
               }
             }'
