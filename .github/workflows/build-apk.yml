@@ -91,6 +91,110 @@ jobs:
           if [ -f node_modules/capacitor-admob-nextgen/scripts/admob-native.js ]; then node node_modules/capacitor-admob-nextgen/scripts/admob-native.js; fi
           sed -i '/<application/i \    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />' android/app/src/main/AndroidManifest.xml
 
+      - name: Inject Custom Notification Layout & Logic
+        run: |
+          # 1. Create the Pinterest-style XML Grid Layout
+          mkdir -p android/app/src/main/res/layout
+          cat << 'EOF' > android/app/src/main/res/layout/custom_heads_up.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:layout_width="match_parent"
+              android:layout_height="128dp"
+              android:orientation="horizontal"
+              android:background="#000000">
+              <!-- Main Left Image -->
+              <ImageView
+                  android:id="@+id/img_left"
+                  android:layout_width="0dp"
+                  android:layout_height="match_parent"
+                  android:layout_weight="1.5"
+                  android:scaleType="centerCrop"
+                  android:layout_marginEnd="2dp"/>
+              <!-- Right Column Stack -->
+              <LinearLayout
+                  android:layout_width="0dp"
+                  android:layout_height="match_parent"
+                  android:layout_weight="1"
+                  android:orientation="vertical">
+                  <ImageView
+                      android:id="@+id/img_top_right"
+                      android:layout_width="match_parent"
+                      android:layout_height="0dp"
+                      android:layout_weight="1"
+                      android:scaleType="centerCrop"
+                      android:layout_marginBottom="2dp"/>
+                  <ImageView
+                      android:id="@+id/img_bottom_right"
+                      android:layout_width="match_parent"
+                      android:layout_height="0dp"
+                      android:layout_weight="1"
+                      android:scaleType="centerCrop" />
+              </LinearLayout>
+          </LinearLayout>
+          EOF
+          
+          # 2. Create the Java Extender with Image Downloading Logic
+          mkdir -p android/app/src/main/java/com/firatech/app
+          cat << 'EOF' > android/app/src/main/java/com/firatech/app/NotificationExtender.java
+          package com.firatech.app;
+          
+          import android.content.Context;
+          import android.graphics.Bitmap;
+          import android.graphics.BitmapFactory;
+          import android.widget.RemoteViews;
+          import com.onesignal.notifications.INotificationServiceExtension;
+          import com.onesignal.notifications.INotificationReceivedEvent;
+          import com.onesignal.notifications.IMutableINotification;
+          import org.json.JSONObject;
+          import java.net.URL;
+          import java.io.InputStream;
+          
+          public class NotificationExtender implements INotificationServiceExtension {
+              
+              private Bitmap downloadImage(String urlString) {
+                  try {
+                      InputStream in = new URL(urlString).openStream();
+                      return BitmapFactory.decodeStream(in);
+                  } catch (Exception e) {
+                      return null;
+                  }
+              }
+
+              @Override
+              public void onNotificationReceived(INotificationReceivedEvent event) {
+                  IMutableINotification notification = event.getNotification();
+                  Context context = event.getContext();
+                  
+                  RemoteViews customView = new RemoteViews(context.getPackageName(), R.layout.custom_heads_up);
+                  
+                  try {
+                      JSONObject data = notification.getAdditionalData();
+                      if (data != null) {
+                          // Download and set images from custom payload data
+                          Bitmap bmpLeft = downloadImage(data.optString("grid_1"));
+                          if (bmpLeft != null) customView.setImageViewBitmap(R.id.img_left, bmpLeft);
+                          
+                          Bitmap bmpTopRight = downloadImage(data.optString("grid_2"));
+                          if (bmpTopRight != null) customView.setImageViewBitmap(R.id.img_top_right, bmpTopRight);
+                          
+                          Bitmap bmpBottomRight = downloadImage(data.optString("grid_3"));
+                          if (bmpBottomRight != null) customView.setImageViewBitmap(R.id.img_bottom_right, bmpBottomRight);
+                      }
+                  } catch (Exception e) {
+                      e.printStackTrace();
+                  }
+                  
+                  notification.setExtender(builder -> {
+                      builder.setCustomHeadsUpContentView(customView);
+                      return builder;
+                  });
+              }
+          }
+          EOF
+          
+          # 3. Register the service in AndroidManifest.xml
+          sed -i '/<application/a \        <meta-data android:name="com.onesignal.NotificationServiceExtension" android:value="com.firatech.app.NotificationExtender" />' android/app/src/main/AndroidManifest.xml
+
       - name: Set Custom App and Notification Icons
         run: |
           # 1. Set OneSignal Notification Icons (s2.png)
@@ -153,8 +257,11 @@ jobs:
               "app_id": "${{ secrets.ONESIGNAL_APP_ID }}",
               "included_segments": ["Subscribed Users"],
               "headings": {"en": "${{ env.APP_NAME }} Updated!"},
-              "contents": {"en": "The brand new app is almost here. Be the first to join the movement!"},
-              "large_icon": "https://hulum.online/push.png",
-              "big_picture": "https://hulum.online/push.png",
-              "android_channel_id": "2c87aaaf-d24f-4855-a992-3d749a5a016f"
+              "contents": {"en": "Check out the new layout!"},
+              "android_channel_id": "2c87aaaf-d24f-4855-a992-3d749a5a016f",
+              "data": {
+                 "grid_1": "https://hulum.online/push.png",
+                 "grid_2": "https://hulum.online/push_2.png",
+                 "grid_3": "https://hulum.online/push_3.png"
+              }
             }'
