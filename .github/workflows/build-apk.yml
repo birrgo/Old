@@ -29,7 +29,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -192,7 +191,6 @@ jobs:
 
           cat > android/app/src/main/res/layout/notification_pinterest.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
-
           <ImageView
               xmlns:android="http://schemas.android.com/apk/res/android"
               android:id="@+id/notification_image"
@@ -393,12 +391,9 @@ jobs:
       - name: Register Notification Service
         run: |
           MANIFEST="android/app/src/main/AndroidManifest.xml"
-
-          sed -i '/<application>/a \
-          <meta-data \
-          android:name="com.onesignal.NotificationServiceExtension" \
-          android:value="com.firatech.app.NotificationServiceExtension" />' \
-          "$MANIFEST"
+          
+          # Fixed sed command: Looks for the closing tag to safely insert metadata
+          sed -i 's|</application>|<meta-data android:name="com.onesignal.NotificationServiceExtension" android:value="com.firatech.app.NotificationServiceExtension" /></application>|' "$MANIFEST"
 
       # =========================================================
       # BUILD
