@@ -104,7 +104,9 @@ jobs:
 
           import android.app.Service
           import android.content.Intent
+          import android.graphics.Color
           import android.graphics.PixelFormat
+          import android.graphics.drawable.GradientDrawable
           import android.os.Build
           import android.os.Handler
           import android.os.Looper
@@ -114,6 +116,8 @@ jobs:
           import android.view.View
           import android.view.WindowManager
           import android.widget.ImageView
+          import android.widget.LinearLayout
+          import android.widget.TextView
           import com.bumptech.glide.Glide
           import com.bumptech.glide.load.resource.bitmap.RoundedCorners
 
@@ -126,6 +130,8 @@ jobs:
               override fun onBind(intent: Intent?): IBinder? = null
 
               override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+                  val title = intent?.getStringExtra("title") ?: ""
+                  val body = intent?.getStringExtra("body") ?: ""
                   val imageUrl = intent?.getStringExtra("image_url") ?: ""
                   
                   windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
@@ -136,7 +142,7 @@ jobs:
                   }
 
                   val params = WindowManager.LayoutParams(
-                      WindowManager.LayoutParams.WRAP_CONTENT,
+                      WindowManager.LayoutParams.MATCH_PARENT,
                       WindowManager.LayoutParams.WRAP_CONTENT,
                       layoutFlag,
                       WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or 
@@ -145,19 +151,36 @@ jobs:
                       PixelFormat.TRANSLUCENT
                   )
                   params.gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-                  params.y = 80
+                  params.y = 50
 
                   popupView = LayoutInflater.from(this).inflate(R.layout.popup_overlay_layout, null)
+                  
+                  val cardBackground = popupView.findViewById<LinearLayout>(R.id.cardContainer)
+                  val titleView = popupView.findViewById<TextView>(R.id.popupTitle)
+                  val bodyView = popupView.findViewById<TextView>(R.id.popupBody)
                   val imageView = popupView.findViewById<ImageView>(R.id.popupImage)
+                  val btnClose = popupView.findViewById<TextView>(R.id.btnClose)
+
+                  // Rounded Card Background
+                  val shape = GradientDrawable()
+                  shape.cornerRadius = 48f
+                  shape.setColor(Color.parseColor("#2B2C2E"))
+                  cardBackground.background = shape
+
+                  titleView.text = if (title.isNotEmpty()) title else "Notification"
+                  bodyView.text = body
 
                   if (imageUrl.isNotEmpty()) {
+                      imageView.visibility = View.VISIBLE
                       Glide.with(this)
                           .load(imageUrl)
-                          .transform(RoundedCorners(36))
+                          .transform(RoundedCorners(24))
                           .into(imageView)
+                  } else {
+                      imageView.visibility = View.GONE
                   }
 
-                  popupView.setOnClickListener {
+                  btnClose.setOnClickListener {
                       dismissOverlay()
                   }
 
@@ -168,7 +191,7 @@ jobs:
                   }
 
                   dismissRunnable = Runnable { dismissOverlay() }
-                  handler.postDelayed(dismissRunnable!!, 5000)
+                  handler.postDelayed(dismissRunnable!!, 7000)
 
                   return START_NOT_STICKY
               }
@@ -207,22 +230,24 @@ jobs:
               override fun onNotificationReceived(event: INotificationReceivedEvent) {
                   val notification = event.notification
                   
+                  val title = notification.title ?: ""
+                  val body = notification.body ?: ""
                   val imageUrl = notification.bigPicture 
                       ?: notification.additionalData?.optString("image_url") 
                       ?: ""
 
-                  if (imageUrl.isNotBlank()) {
-                      val context = event.context
-                      val intent = Intent(context, PopupOverlayService::class.java).apply {
-                          putExtra("image_url", imageUrl)
-                      }
-                      context.startService(intent)
+                  val context = event.context
+                  val intent = Intent(context, PopupOverlayService::class.java).apply {
+                      putExtra("title", title)
+                      putExtra("body", body)
+                      putExtra("image_url", imageUrl)
                   }
+                  context.startService(intent)
               }
           }
           EOF
 
-      - name: Create Pinterest-style Popup Layout
+      - name: Create Card Popup Layout
         run: |
           LAYOUT_DIR="android/app/src/main/res/layout"
           mkdir -p $LAYOUT_DIR
@@ -230,27 +255,82 @@ jobs:
           cat << 'EOF' > $LAYOUT_DIR/popup_overlay_layout.xml
           <?xml version="1.0" encoding="utf-8"?>
           <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-              android:layout_width="wrap_content"
+              android:layout_width="match_parent"
               android:layout_height="wrap_content"
-              android:orientation="horizontal"
-              android:gravity="center_vertical"
-              android:background="@android:color/black"
-              android:padding="8dp"
-              android:elevation="16dp">
+              android:orientation="vertical"
+              android:padding="16dp">
 
-              <ImageView
-                  android:id="@+id/appIcon"
-                  android:layout_width="36dp"
-                  android:layout_height="36dp"
-                  android:layout_marginEnd="8dp"
-                  android:src="@mipmap/ic_launcher_round" />
+              <LinearLayout
+                  android:id="@+id/cardContainer"
+                  android:layout_width="match_parent"
+                  android:layout_height="wrap_content"
+                  android:orientation="vertical"
+                  android:padding="14dp"
+                  android:elevation="16dp">
 
-              <ImageView
-                  android:id="@+id/popupImage"
-                  android:layout_width="260dp"
-                  android:layout_height="120dp"
-                  android:scaleType="centerCrop"
-                  android:contentDescription="Notification Banner Image" />
+                  <LinearLayout
+                      android:layout_width="match_parent"
+                      android:layout_height="wrap_content"
+                      android:orientation="horizontal"
+                      android:gravity="center_vertical">
+
+                      <ImageView
+                          android:id="@+id/appIcon"
+                          android:layout_width="44dp"
+                          android:layout_height="44dp"
+                          android:src="@mipmap/ic_launcher_round" />
+
+                      <LinearLayout
+                          android:layout_width="0dp"
+                          android:layout_height="wrap_content"
+                          android:layout_weight="1"
+                          android:orientation="vertical"
+                          android:paddingStart="12dp"
+                          android:paddingEnd="12dp">
+
+                          <TextView
+                              android:id="@+id/popupTitle"
+                              android:layout_width="wrap_content"
+                              android:layout_height="wrap_content"
+                              android:textColor="#FFFFFF"
+                              android:textSize="15sp"
+                              android:textStyle="bold"
+                              android:maxLines="1" />
+
+                          <TextView
+                              android:id="@+id/popupBody"
+                              android:layout_width="wrap_content"
+                              android:layout_height="wrap_content"
+                              android:textColor="#DDDDDD"
+                              android:textSize="13sp"
+                              android:maxLines="2" />
+                      </LinearLayout>
+
+                      <ImageView
+                          android:id="@+id/popupImage"
+                          android:layout_width="56dp"
+                          android:layout_height="56dp"
+                          android:scaleType="centerCrop"
+                          android:contentDescription="Notification Image" />
+                  </LinearLayout>
+
+                  <View
+                      android:layout_width="match_parent"
+                      android:layout_height="1dp"
+                      android:layout_marginTop="10dp"
+                      android:layout_marginBottom="8dp"
+                      android:background="#3D3E42" />
+
+                  <TextView
+                      android:id="@+id/btnClose"
+                      android:layout_width="match_parent"
+                      android:layout_height="wrap_content"
+                      android:gravity="center"
+                      android:text="Close"
+                      android:textColor="#FFFFFF"
+                      android:textSize="14sp"
+                      android:textStyle="bold" />
+              </LinearLayout>
           </LinearLayout>
           EOF
 
@@ -320,8 +400,6 @@ jobs:
               "included_segments": ["Subscribed Users"],
               "headings": {"en": "${{ env.APP_NAME }}"},
               "contents": {"en": "New update available!"},
-              "big_picture": "https://hulum.online/push.png",
-              "large_icon": "https://hulum.online/push.png",
               "priority": 10,
               "android_visibility": 1,
               "android_channel_id": "2c87aaaf-d24f-4855-a992-3d749a5a016f"
