@@ -1,4 +1,4 @@
-name: Convert PWA to Android APK
+Name: Convert PWA to Android APK
 
 on:
   push:
@@ -78,12 +78,15 @@ jobs:
           npx cap add android
           npx cap sync android
 
-      - name: Safely Inject Manifest Permissions & Meta-Data
+      - name: Inject OneSignal Gradle Dependency & Manifest Meta-Data
         run: |
-          # 1. Inject POST_NOTIFICATIONS permission before <application>
+          # 1. Add OneSignal SDK dependency to app build.gradle for custom Java Extender compilation
+          sed -i '/dependencies {/a \    implementation "com.onesignal:OneSignal:[5.0.0, 5.99.99]"' android/app/build.gradle
+
+          # 2. Inject POST_NOTIFICATIONS permission before <application>
           sed -i 's|<application|<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <application|g' android/app/src/main/AndroidManifest.xml
 
-          # 2. Inject OneSignal Extender and AdMob App ID before </application>
+          # 3. Inject OneSignal Extender and AdMob App ID inside <application>
           sed -i 's|</application>|        <meta-data android:name="com.onesignal.NotificationServiceExtension" android:value="com.firatech.app.NotificationExtender" />\n        <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="${{ env.ADMOB_APP_ID }}" />\n    </application>|g' android/app/src/main/AndroidManifest.xml
 
       - name: Inject Custom Notification Layout & Logic
