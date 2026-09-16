@@ -5,6 +5,22 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      # This allows you to paste an image URL and custom text right from GitHub before running!
+      push_title:
+        description: 'Notification Title'
+        required: true
+        default: 'Fira Tech Updated!'
+        type: string
+      push_message:
+        description: 'Notification Message'
+        required: true
+        default: 'A new version or item has been posted. Open the app to check it out!'
+        type: string
+      image_url:
+        description: 'Image URL for Big Picture (Optional, e.g., https://example.com/img.jpg)'
+        required: false
+        type: string
 
 env:
   APP_NAME: "Fira Tech"
@@ -26,7 +42,7 @@ jobs:
       - name: Install Dependencies & Esbuild
         run: |
           if [ ! -f package.json ]; then npm init -y; fi
-          npm install @capacitor/core@8 @capacitor/cli@8 @capacitor/android@8 @capacitor/splash-screen@8 capacitor-admob-nextgen@1.2.9 @onesignal/capacitor-plugin esbuild
+          npm install @capacitor/core@8 @capacitor/cli@8 @capacitor/android@8 @capacitor/splash-screen@8 capacitor-admob-nextgen@1.2.9 onesignal-cordova-plugin esbuild
 
       - name: Initialize AdMob SDK Variables
         run: |
@@ -48,10 +64,10 @@ jobs:
           
           echo "import { Capacitor } from '@capacitor/core';" > bridge.js
           echo "import { AdMobNextGen } from 'capacitor-admob-nextgen';" >> bridge.js
-          echo "import OneSignalPlugin from '@onesignal/capacitor-plugin';" >> bridge.js
+          echo "import OneSignal from 'onesignal-cordova-plugin';" >> bridge.js
           echo "window.Capacitor = Capacitor;" >> bridge.js
           echo "window.AdMobPlugin = AdMobNextGen;" >> bridge.js
-          echo "window.OneSignal = OneSignalPlugin.default || OneSignalPlugin;" >> bridge.js
+          echo "window.OneSignal = OneSignal;" >> bridge.js
           
           npx esbuild bridge.js --bundle --minify --outfile=www/native-bridge.js
 
@@ -89,267 +105,6 @@ jobs:
           npx cap sync android
           if [ -f node_modules/capacitor-admob-nextgen/scripts/admob-manifest.js ]; then node node_modules/capacitor-admob-nextgen/scripts/admob-manifest.js; fi
           if [ -f node_modules/capacitor-admob-nextgen/scripts/admob-native.js ]; then node node_modules/capacitor-admob-nextgen/scripts/admob-native.js; fi
-          
-          sed -i '/dependencies {/a \    implementation "com.github.bumptech.glide:glide:4.16.0"' android/app/build.gradle
-          sed -i '/<application/i \    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />' android/app/src/main/AndroidManifest.xml
-          sed -i '/<application/i \    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />' android/app/src/main/AndroidManifest.xml
-
-      - name: Create Top Floating Image Service
-        run: |
-          SERVICE_DIR="android/app/src/main/java/com/firatech/app"
-          mkdir -p $SERVICE_DIR
-          
-          cat << 'EOF' > $SERVICE_DIR/PopupOverlayService.kt
-          package com.firatech.app
-
-          import android.app.Service
-          import android.content.Intent
-          import android.graphics.Color
-          import android.graphics.PixelFormat
-          import android.graphics.drawable.GradientDrawable
-          import android.os.Build
-          import android.os.Handler
-          import android.os.Looper
-          import android.os.IBinder
-          import android.view.Gravity
-          import android.view.LayoutInflater
-          import android.view.View
-          import android.view.WindowManager
-          import android.widget.ImageView
-          import android.widget.LinearLayout
-          import android.widget.TextView
-          import com.bumptech.glide.Glide
-          import com.bumptech.glide.load.resource.bitmap.RoundedCorners
-
-          class PopupOverlayService : Service() {
-              private lateinit var windowManager: WindowManager
-              private lateinit var popupView: View
-              private val handler = Handler(Looper.getMainLooper())
-              private var dismissRunnable: Runnable? = null
-
-              override fun onBind(intent: Intent?): IBinder? = null
-
-              override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-                  val title = intent?.getStringExtra("title") ?: ""
-                  val body = intent?.getStringExtra("body") ?: ""
-                  val imageUrl = intent?.getStringExtra("image_url") ?: ""
-                  
-                  windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
-                  val layoutFlag = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                      WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-                  } else {
-                      WindowManager.LayoutParams.TYPE_PHONE
-                  }
-
-                  val params = WindowManager.LayoutParams(
-                      WindowManager.LayoutParams.MATCH_PARENT,
-                      WindowManager.LayoutParams.WRAP_CONTENT,
-                      layoutFlag,
-                      WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or 
-                      WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or 
-                      WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON,
-                      PixelFormat.TRANSLUCENT
-                  )
-                  params.gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-                  params.y = 50
-
-                  popupView = LayoutInflater.from(this).inflate(R.layout.popup_overlay_layout, null)
-                  
-                  val cardBackground = popupView.findViewById<LinearLayout>(R.id.cardContainer)
-                  val titleView = popupView.findViewById<TextView>(R.id.popupTitle)
-                  val bodyView = popupView.findViewById<TextView>(R.id.popupBody)
-                  val imageView = popupView.findViewById<ImageView>(R.id.popupImage)
-                  val btnClose = popupView.findViewById<TextView>(R.id.btnClose)
-
-                  // Rounded Card Background
-                  val shape = GradientDrawable()
-                  shape.cornerRadius = 48f
-                  shape.setColor(Color.parseColor("#2B2C2E"))
-                  cardBackground.background = shape
-
-                  titleView.text = if (title.isNotEmpty()) title else "Notification"
-                  bodyView.text = body
-
-                  if (imageUrl.isNotEmpty()) {
-                      imageView.visibility = View.VISIBLE
-                      Glide.with(this)
-                          .load(imageUrl)
-                          .transform(RoundedCorners(24))
-                          .into(imageView)
-                  } else {
-                      imageView.visibility = View.GONE
-                  }
-
-                  btnClose.setOnClickListener {
-                      dismissOverlay()
-                  }
-
-                  try {
-                      windowManager.addView(popupView, params)
-                  } catch (e: Exception) {
-                      e.printStackTrace()
-                  }
-
-                  dismissRunnable = Runnable { dismissOverlay() }
-                  handler.postDelayed(dismissRunnable!!, 7000)
-
-                  return START_NOT_STICKY
-              }
-
-              private fun dismissOverlay() {
-                  dismissRunnable?.let { handler.removeCallbacks(it) }
-                  if (::popupView.isInitialized && popupView.windowToken != null) {
-                      try {
-                          windowManager.removeView(popupView)
-                      } catch (e: Exception) {
-                          e.printStackTrace()
-                      }
-                  }
-                  stopSelf()
-              }
-
-              override fun onDestroy() {
-                  super.onDestroy()
-                  dismissOverlay()
-              }
-          }
-          EOF
-
-      - name: Create OneSignal Notification Extension
-        run: |
-          SERVICE_DIR="android/app/src/main/java/com/firatech/app"
-          
-          cat << 'EOF' > $SERVICE_DIR/NotificationServiceExtension.kt
-          package com.firatech.app
-
-          import android.content.Intent
-          import com.onesignal.notifications.INotificationReceivedEvent
-          import com.onesignal.notifications.INotificationServiceExtension
-
-          class NotificationServiceExtension : INotificationServiceExtension {
-              override fun onNotificationReceived(event: INotificationReceivedEvent) {
-                  val notification = event.notification
-                  
-                  val title = notification.title ?: ""
-                  val body = notification.body ?: ""
-                  val imageUrl = notification.bigPicture 
-                      ?: notification.additionalData?.optString("image_url") 
-                      ?: ""
-
-                  val context = event.context
-                  val intent = Intent(context, PopupOverlayService::class.java).apply {
-                      putExtra("title", title)
-                      putExtra("body", body)
-                      putExtra("image_url", imageUrl)
-                  }
-                  context.startService(intent)
-              }
-          }
-          EOF
-
-      - name: Create Card Popup Layout
-        run: |
-          LAYOUT_DIR="android/app/src/main/res/layout"
-          mkdir -p $LAYOUT_DIR
-          
-          cat << 'EOF' > $LAYOUT_DIR/popup_overlay_layout.xml
-          <?xml version="1.0" encoding="utf-8"?>
-          <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-              android:layout_width="match_parent"
-              android:layout_height="wrap_content"
-              android:orientation="vertical"
-              android:padding="16dp">
-
-              <LinearLayout
-                  android:id="@+id/cardContainer"
-                  android:layout_width="match_parent"
-                  android:layout_height="wrap_content"
-                  android:orientation="vertical"
-                  android:padding="14dp"
-                  android:elevation="16dp">
-
-                  <LinearLayout
-                      android:layout_width="match_parent"
-                      android:layout_height="wrap_content"
-                      android:orientation="horizontal"
-                      android:gravity="center_vertical">
-
-                      <ImageView
-                          android:id="@+id/appIcon"
-                          android:layout_width="44dp"
-                          android:layout_height="44dp"
-                          android:src="@mipmap/ic_launcher_round" />
-
-                      <LinearLayout
-                          android:layout_width="0dp"
-                          android:layout_height="wrap_content"
-                          android:layout_weight="1"
-                          android:orientation="vertical"
-                          android:paddingStart="12dp"
-                          android:paddingEnd="12dp">
-
-                          <TextView
-                              android:id="@+id/popupTitle"
-                              android:layout_width="wrap_content"
-                              android:layout_height="wrap_content"
-                              android:textColor="#FFFFFF"
-                              android:textSize="15sp"
-                              android:textStyle="bold"
-                              android:maxLines="1" />
-
-                          <TextView
-                              android:id="@+id/popupBody"
-                              android:layout_width="wrap_content"
-                              android:layout_height="wrap_content"
-                              android:textColor="#DDDDDD"
-                              android:textSize="13sp"
-                              android:maxLines="2" />
-                      </LinearLayout>
-
-                      <ImageView
-                          android:id="@+id/popupImage"
-                          android:layout_width="56dp"
-                          android:layout_height="56dp"
-                          android:scaleType="centerCrop"
-                          android:contentDescription="Notification Image" />
-                  </LinearLayout>
-
-                  <View
-                      android:layout_width="match_parent"
-                      android:layout_height="1dp"
-                      android:layout_marginTop="10dp"
-                      android:layout_marginBottom="8dp"
-                      android:background="#3D3E42" />
-
-                  <TextView
-                      android:id="@+id/btnClose"
-                      android:layout_width="match_parent"
-                      android:layout_height="wrap_content"
-                      android:gravity="center"
-                      android:text="Close"
-                      android:textColor="#FFFFFF"
-                      android:textSize="14sp"
-                      android:textStyle="bold" />
-              </LinearLayout>
-          </LinearLayout>
-          EOF
-
-      - name: Register Service & Extension in Manifest
-        run: |
-          sed -i '/<\/application>/i \    <service android:name=".PopupOverlayService" android:exported="false" />' android/app/src/main/AndroidManifest.xml
-          sed -i '/<\/application>/i \    <meta-data android:name="com.onesignal.NotificationServiceExtension" android:value="com.firatech.app.NotificationServiceExtension" />' android/app/src/main/AndroidManifest.xml
-
-      - name: Set Custom App and Notification Icons
-        run: |
-          mkdir -p android/app/src/main/res/drawable
-          cp s2.png android/app/src/main/res/drawable/ic_stat_onesignal_default.png
-          cp s2.png android/app/src/main/res/drawable/ic_onesignal_large_icon_default.png
-          
-          for dir in mipmap-mdpi mipmap-hdpi mipmap-xhdpi mipmap-xxhdpi mipmap-xxxhdpi; do
-            cp s.png android/app/src/main/res/$dir/ic_launcher.png
-            cp s.png android/app/src/main/res/$dir/ic_launcher_round.png
-            cp s.png android/app/src/main/res/$dir/ic_launcher_foreground.png
-          done
 
       - name: Target Android SDK 36
         run: |
@@ -368,12 +123,6 @@ jobs:
           sed -i 's/versionCode 1/versionCode ${{ github.run_number }}/' android/app/build.gradle
           sed -i 's/versionName "1.0"/versionName "1.0.${{ github.run_number }}"/' android/app/build.gradle
 
-      - name: Add Google Services JSON
-        run: |
-          cat << 'EOF' > android/app/google-services.json
-          ${{ secrets.GOOGLE_SERVICES_JSON }}
-          EOF
-
       - name: Build Installable Debug APK
         run: |
           cd android
@@ -391,16 +140,31 @@ jobs:
 
       - name: Send OneSignal Push Notification
         run: |
+          # Use inputs if manually triggered, otherwise use fallbacks
+          TITLE="${{ github.event.inputs.push_title || env.APP_NAME }}"
+          MESSAGE="${{ github.event.inputs.push_message || 'A new version or item has been posted. Open the app to check it out!' }}"
+          IMAGE_URL="${{ github.event.inputs.image_url || '' }}"
+          
+          # Base JSON payload
+          PAYLOAD=$(cat <<EOF
+          {
+            "app_id": "${{ secrets.ONESIGNAL_APP_ID }}",
+            "included_segments": ["Subscribed Users"],
+            "headings": {"en": "$TITLE"},
+            "contents": {"en": "$MESSAGE"},
+            "priority": 10,
+            "android_channel_id": "2c87aaaf-d24f-4855-a992-3d749a5a016f"
+          }
+          EOF
+          )
+          
+          # Inject big_picture if an image URL was provided
+          if [ -n "$IMAGE_URL" ]; then
+            PAYLOAD=$(echo "$PAYLOAD" | jq --arg img "$IMAGE_URL" '. + {big_picture: $img}')
+          fi
+
           curl --request POST \
             --url https://onesignal.com/api/v1/notifications \
             --header "Authorization: Basic ${{ secrets.ONESIGNAL_REST_API_KEY }}" \
             --header "Content-Type: application/json" \
-            --data '{
-              "app_id": "${{ secrets.ONESIGNAL_APP_ID }}",
-              "included_segments": ["Subscribed Users"],
-              "headings": {"en": "${{ env.APP_NAME }}"},
-              "contents": {"en": "New update available!"},
-              "priority": 10,
-              "android_visibility": 1,
-              "android_channel_id": "2c87aaaf-d24f-4855-a992-3d749a5a016f"
-            }'
+            --data "$PAYLOAD"
