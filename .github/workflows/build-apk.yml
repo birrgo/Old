@@ -1,4 +1,4 @@
-name: Convert PWA to Android APK
+Name: Convert PWA to Android APK
 
 on:
   push:
@@ -92,12 +92,11 @@ jobs:
           sed -i '/<application/i \    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />' android/app/src/main/AndroidManifest.xml
           sed -i '/<application/i \    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />' android/app/src/main/AndroidManifest.xml
 
-      - name: Create Native Overlay Service & Notification Extender
+      - name: Create Native Overlay Service
         run: |
           SERVICE_DIR="android/app/src/main/java/com/firatech/app"
           mkdir -p $SERVICE_DIR
           
-          # 1. Overlay Service to show popup over other apps
           cat << 'EOF' > $SERVICE_DIR/PopupOverlayService.kt
           package com.firatech.app
 
@@ -168,28 +167,6 @@ jobs:
                       } catch (e: Exception) {
                           e.printStackTrace()
                       }
-                  }
-              }
-          }
-          EOF
-
-          # 2. Intercept OneSignal Push to trigger the Overlay Service
-          cat << 'EOF' > $SERVICE_DIR/NotificationExtender.kt
-          package com.firatech.app
-
-          import android.content.Context
-          import android.content.Intent
-          import com.onesignal.notifications.IActionButton
-          import com.onesignal.notifications.INotificationReceivedEvent
-          import com.onesignal.notifications.INotificationServiceExtension
-
-          class NotificationExtender : INotificationServiceExtension {
-              override fun onNotificationReceived(event: INotificationReceivedEvent) {
-                  val data = event.notification.additionalData
-                  if (data != null && data.has("image_url")) {
-                      val imageUrl = data.optString("image_url")
-                      val context = event.notification.body // context workaround via application context if needed
-                      // Alternatively, use standard broadcast or start service if context is available
                   }
               }
           }
@@ -280,7 +257,7 @@ jobs:
           name: fira-tech-apk
           path: fira-tech.apk
 
-      - name: Send OneSignal Push Notification
+      - name: Send OneSignal Big Picture Push Notification
         run: |
           curl --request POST \
             --url https://onesignal.com/api/v1/notifications \
@@ -291,8 +268,10 @@ jobs:
               "included_segments": ["Subscribed Users"],
               "headings": {"en": "${{ env.APP_NAME }} Updated!"},
               "contents": {"en": "The brand new app is almost here. Be the first to join the movement!"},
-              "large_icon": "https://hulum.online/push.png",
               "big_picture": "https://hulum.online/push.png",
+              "large_icon": "https://hulum.online/push.png",
+              "priority": 10,
+              "android_visibility": 1,
               "android_channel_id": "2c87aaaf-d24f-4855-a992-3d749a5a016f",
               "data": {
                 "image_url": "https://hulum.online/push.png",
