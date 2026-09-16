@@ -6,7 +6,6 @@ on:
       - main
   workflow_dispatch:
     inputs:
-      # This allows you to paste an image URL and custom text right from GitHub before running!
       push_title:
         description: 'Notification Title'
         required: true
@@ -18,7 +17,7 @@ on:
         default: 'A new version or item has been posted. Open the app to check it out!'
         type: string
       image_url:
-        description: 'Image URL for Big Picture (Optional, e.g., https://example.com/img.jpg)'
+        description: 'Image URL for Big Picture Popup (Optional)'
         required: false
         type: string
 
@@ -42,7 +41,7 @@ jobs:
       - name: Install Dependencies & Esbuild
         run: |
           if [ ! -f package.json ]; then npm init -y; fi
-          npm install @capacitor/core@8 @capacitor/cli@8 @capacitor/android@8 @capacitor/splash-screen@8 capacitor-admob-nextgen@1.2.9 onesignal-cordova-plugin esbuild
+          npm install @capacitor/core@8 @capacitor/cli@8 @capacitor/android@8 @capacitor/splash-screen@8 capacitor-admob-nextgen@1.2.9 @onesignal/capacitor-plugin esbuild
 
       - name: Initialize AdMob SDK Variables
         run: |
@@ -64,10 +63,10 @@ jobs:
           
           echo "import { Capacitor } from '@capacitor/core';" > bridge.js
           echo "import { AdMobNextGen } from 'capacitor-admob-nextgen';" >> bridge.js
-          echo "import OneSignal from 'onesignal-cordova-plugin';" >> bridge.js
+          echo "import OneSignalPlugin from '@onesignal/capacitor-plugin';" >> bridge.js
           echo "window.Capacitor = Capacitor;" >> bridge.js
           echo "window.AdMobPlugin = AdMobNextGen;" >> bridge.js
-          echo "window.OneSignal = OneSignal;" >> bridge.js
+          echo "window.OneSignal = OneSignalPlugin.default || OneSignalPlugin;" >> bridge.js
           
           npx esbuild bridge.js --bundle --minify --outfile=www/native-bridge.js
 
@@ -105,6 +104,21 @@ jobs:
           npx cap sync android
           if [ -f node_modules/capacitor-admob-nextgen/scripts/admob-manifest.js ]; then node node_modules/capacitor-admob-nextgen/scripts/admob-manifest.js; fi
           if [ -f node_modules/capacitor-admob-nextgen/scripts/admob-native.js ]; then node node_modules/capacitor-admob-nextgen/scripts/admob-native.js; fi
+          sed -i '/<application/i \    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />' android/app/src/main/AndroidManifest.xml
+
+      - name: Set Custom App and Notification Icons
+        run: |
+          # 1. Set OneSignal Notification Icons (s2.png)
+          mkdir -p android/app/src/main/res/drawable
+          cp s2.png android/app/src/main/res/drawable/ic_stat_onesignal_default.png
+          cp s2.png android/app/src/main/res/drawable/ic_onesignal_large_icon_default.png
+          
+          # 2. Set Main App Icons (s.png) across all Android resolution folders
+          for dir in mipmap-mdpi mipmap-hdpi mipmap-xhdpi mipmap-xxhdpi mipmap-xxxhdpi; do
+            cp s.png android/app/src/main/res/$dir/ic_launcher.png
+            cp s.png android/app/src/main/res/$dir/ic_launcher_round.png
+            cp s.png android/app/src/main/res/$dir/ic_launcher_foreground.png
+          done
 
       - name: Target Android SDK 36
         run: |
@@ -123,6 +137,12 @@ jobs:
           sed -i 's/versionCode 1/versionCode ${{ github.run_number }}/' android/app/build.gradle
           sed -i 's/versionName "1.0"/versionName "1.0.${{ github.run_number }}"/' android/app/build.gradle
 
+      - name: Add Google Services JSON
+        run: |
+          cat << 'EOF' > android/app/google-services.json
+          ${{ secrets.GOOGLE_SERVICES_JSON }}
+          EOF
+
       - name: Build Installable Debug APK
         run: |
           cd android
@@ -140,12 +160,11 @@ jobs:
 
       - name: Send OneSignal Push Notification
         run: |
-          # Use inputs if manually triggered, otherwise use fallbacks
           TITLE="${{ github.event.inputs.push_title || env.APP_NAME }}"
           MESSAGE="${{ github.event.inputs.push_message || 'A new version or item has been posted. Open the app to check it out!' }}"
           IMAGE_URL="${{ github.event.inputs.image_url || '' }}"
           
-          # Base JSON payload
+          # Base JSON payload with priority 10 (Urgent Popup) and your custom Channel ID
           PAYLOAD=$(cat <<EOF
           {
             "app_id": "${{ secrets.ONESIGNAL_APP_ID }}",
@@ -158,7 +177,7 @@ jobs:
           EOF
           )
           
-          # Inject big_picture if an image URL was provided
+          # If you paste an image URL in GitHub Actions, inject the big_picture property
           if [ -n "$IMAGE_URL" ]; then
             PAYLOAD=$(echo "$PAYLOAD" | jq --arg img "$IMAGE_URL" '. + {big_picture: $img}')
           fi
