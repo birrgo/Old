@@ -1,4 +1,4 @@
-name: Convert PWA to Android APK
+Name: Convert PWA to Android APK
 
 on:
   push:
@@ -129,7 +129,7 @@ jobs:
           </LinearLayout>
           EOF
           
-          # Create the Java Extender
+          # Create the Java Extender using IDisplayableNotification
           mkdir -p android/app/src/main/java/com/firatech/app
           cat << 'EOF' > android/app/src/main/java/com/firatech/app/NotificationExtender.java
           package com.firatech.app;
@@ -140,7 +140,7 @@ jobs:
           import android.widget.RemoteViews;
           import com.onesignal.notifications.INotificationServiceExtension;
           import com.onesignal.notifications.INotificationReceivedEvent;
-          import com.onesignal.notifications.IMutableINotification;
+          import com.onesignal.notifications.IDisplayableNotification;
           import org.json.JSONObject;
           import java.net.URL;
           import java.io.InputStream;
@@ -158,7 +158,7 @@ jobs:
 
               @Override
               public void onNotificationReceived(INotificationReceivedEvent event) {
-                  IMutableINotification notification = event.getNotification();
+                  IDisplayableNotification notification = event.getNotification();
                   Context context = event.getContext();
                   
                   RemoteViews customView = new RemoteViews(context.getPackageName(), R.layout.custom_heads_up);
