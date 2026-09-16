@@ -232,6 +232,10 @@ jobs:
           ${{ secrets.GOOGLE_SERVICES_JSON }}
           EOF
 
+      - name: Fix Obsolete Package Attributes in Manifests
+        run: |
+          find node_modules -name "AndroidManifest.xml" -exec sed -i '/package="/d' {} +
+
       - name: Build Installable Debug APK
         run: |
           cd android
