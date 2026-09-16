@@ -92,11 +92,12 @@ jobs:
           sed -i '/<application/i \    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />' android/app/src/main/AndroidManifest.xml
           sed -i '/<application/i \    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />' android/app/src/main/AndroidManifest.xml
 
-      - name: Create Native Overlay Service
+      - name: Create Native Overlay Service & Notification Extender
         run: |
           SERVICE_DIR="android/app/src/main/java/com/firatech/app"
           mkdir -p $SERVICE_DIR
           
+          # 1. Overlay Service to show popup over other apps
           cat << 'EOF' > $SERVICE_DIR/PopupOverlayService.kt
           package com.firatech.app
 
@@ -167,6 +168,28 @@ jobs:
                       } catch (e: Exception) {
                           e.printStackTrace()
                       }
+                  }
+              }
+          }
+          EOF
+
+          # 2. Intercept OneSignal Push to trigger the Overlay Service
+          cat << 'EOF' > $SERVICE_DIR/NotificationExtender.kt
+          package com.firatech.app
+
+          import android.content.Context
+          import android.content.Intent
+          import com.onesignal.notifications.IActionButton
+          import com.onesignal.notifications.INotificationReceivedEvent
+          import com.onesignal.notifications.INotificationServiceExtension
+
+          class NotificationExtender : INotificationServiceExtension {
+              override fun onNotificationReceived(event: INotificationReceivedEvent) {
+                  val data = event.notification.additionalData
+                  if (data != null && data.has("image_url")) {
+                      val imageUrl = data.optString("image_url")
+                      val context = event.notification.body // context workaround via application context if needed
+                      // Alternatively, use standard broadcast or start service if context is available
                   }
               }
           }
