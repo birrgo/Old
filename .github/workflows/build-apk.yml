@@ -1,4 +1,4 @@
-name: Convert PWA to Android APK
+Name: Convert PWA to Android APK
 
 on:
   push:
@@ -162,7 +162,7 @@ jobs:
         run: |
           TITLE="${{ github.event.inputs.push_title || env.APP_NAME }}"
           MESSAGE="${{ github.event.inputs.push_message || 'A new version or item has been posted. Open the app to check it out!' }}"
-          IMAGE_URL="${{ github.event.inputs.image_url || '' }}"
+          RAW_IMAGE_URL="${{ github.event.inputs.image_url || '' }}"
           
           # Base JSON payload with priority 10 (Urgent Popup) and your custom Channel ID
           PAYLOAD=$(cat <<EOF
@@ -177,9 +177,11 @@ jobs:
           EOF
           )
           
-          # If you paste an image URL in GitHub Actions, inject the big_picture property
-          if [ -n "$IMAGE_URL" ]; then
-            PAYLOAD=$(echo "$PAYLOAD" | jq --arg img "$IMAGE_URL" '. + {big_picture: $img}')
+          # Use an image proxy to compress the image on the fly
+          if [ -n "$RAW_IMAGE_URL" ]; then
+            # This converts the URL to a compressed WebP format, Max Width 1024, 80% quality
+            OPTIMIZED_IMAGE_URL="https://wsrv.nl/?url=${RAW_IMAGE_URL}&w=1024&output=webp&q=80"
+            PAYLOAD=$(echo "$PAYLOAD" | jq --arg img "$OPTIMIZED_IMAGE_URL" '. + {big_picture: $img}')
           fi
 
           curl --request POST \
