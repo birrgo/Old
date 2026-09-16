@@ -2,448 +2,417 @@ name: Convert PWA to Android APK
 
 on:
   push:
-    branches: [main]
-
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       push_title:
-        description: "Notification Title"
+        description: 'Notification Title'
         required: true
-        default: "Netsa Tips 🔔"
+        default: 'Fira Tech Updated!'
         type: string
-
       push_message:
-        description: "Notification Message"
+        description: 'Notification Message'
         required: true
-        default: "🔥 Google Veo Explained! The Future of AI Filmmaking"
+        default: 'A new version or item has been posted. Open the app to check it out!'
+        type: string
+      image_url:
+        description: 'Image URL for Big Picture Popup (Optional)'
+        required: false
         type: string
 
 env:
   APP_NAME: "Fira Tech"
   PACKAGE_NAME: "com.firatech.app"
   ADMOB_APP_ID: "ca-app-pub-3940256099942544~3347511713"
-  NOTIFICATION_IMAGE: "https://hulum.online/push.png"
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout
+      - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup Node
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: '22'
 
-      - name: Install Dependencies
+      - name: Install Dependencies & Esbuild
         run: |
           if [ ! -f package.json ]; then npm init -y; fi
-          npm install \
-            @capacitor/core@8 \
-            @capacitor/cli@8 \
-            @capacitor/android@8 \
-            @capacitor/splash-screen@8 \
-            capacitor-admob-nextgen@1.2.9 \
-            @onesignal/capacitor-plugin \
-            esbuild
+          npm install @capacitor/core@8 @capacitor/cli@8 @capacitor/android@8 @capacitor/splash-screen@8 capacitor-admob-nextgen@1.2.9 @onesignal/capacitor-plugin esbuild
 
-      - name: Configure AdMob
+      - name: Initialize AdMob SDK Variables
         run: |
-          node - <<'NODE'
-          const fs = require("fs");
-          const pkg = JSON.parse(fs.readFileSync("package.json"));
+          node -e "
+          const fs = require('fs');
+          let pkg = JSON.parse(fs.readFileSync('package.json'));
           pkg.admob = {
-            androidAppId: process.env.ADMOB_APP_ID,
-            enableNativeAds: { android: true }
+            androidAppId: '${{ env.ADMOB_APP_ID }}',
+            enableNativeAds: { android: true } 
           };
-          fs.writeFileSync("package.json", JSON.stringify(pkg, null, 2));
-          NODE
-        env:
-          ADMOB_APP_ID: ${{ env.ADMOB_APP_ID }}
+          fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
+          "
 
-      - name: Prepare Website
+      - name: Bundle Web Files & Compile Native Bridge
         run: |
           rm -rf www
-          mkdir www
-
-          rsync -a \
-            --exclude=".git" \
-            --exclude=".github" \
-            --exclude="www" \
-            --exclude="node_modules" \
-            ./ www/
-
-      - name: Create Native Bridge
-        run: |
-          cat > bridge.js <<'EOF'
-          import { Capacitor } from '@capacitor/core';
-          import { AdMobNextGen } from 'capacitor-admob-nextgen';
-          import OneSignalPlugin from '@onesignal/capacitor-plugin';
-
-          window.Capacitor = Capacitor;
-          window.AdMobPlugin = AdMobNextGen;
-          window.OneSignal = OneSignalPlugin.default || OneSignalPlugin;
-          EOF
-
-          npx esbuild bridge.js --bundle --minify \
-            --outfile=www/native-bridge.js
+          mkdir -p www
+          rsync -av --exclude='.git' --exclude='.github' --exclude='www' --exclude='node_modules' ./ www/
+          
+          echo "import { Capacitor } from '@capacitor/core';" > bridge.js
+          echo "import { AdMobNextGen } from 'capacitor-admob-nextgen';" >> bridge.js
+          echo "import OneSignalPlugin from '@onesignal/capacitor-plugin';" >> bridge.js
+          echo "window.Capacitor = Capacitor;" >> bridge.js
+          echo "window.AdMobPlugin = AdMobNextGen;" >> bridge.js
+          echo "window.OneSignal = OneSignalPlugin.default || OneSignalPlugin;" >> bridge.js
+          
+          npx esbuild bridge.js --bundle --minify --outfile=www/native-bridge.js
 
       - name: Create Capacitor Config
         run: |
-          cat > capacitor.config.json <<EOF
-          {
-            "appId": "${PACKAGE_NAME}",
-            "appName": "${APP_NAME}",
-            "webDir": "www",
-            "bundledWebRuntime": false,
-            "plugins": {
-              "SplashScreen": {
-                "launchShowDuration": 3000,
-                "launchAutoHide": true,
-                "backgroundColor": "#001a66",
-                "androidSplashResourceName": "splash",
-                "androidScaleType": "CENTER_CROP",
-                "splashFullScreen": true,
-                "splashImmersive": true,
-                "showSpinner": false
-              }
-            }
-          }
-          EOF
+          echo '{' > capacitor.config.json
+          echo '  "appId": "${{ env.PACKAGE_NAME }}",' >> capacitor.config.json
+          echo '  "appName": "${{ env.APP_NAME }}",' >> capacitor.config.json
+          echo '  "webDir": "www",' >> capacitor.config.json
+          echo '  "bundledWebRuntime": false,' >> capacitor.config.json
+          echo '  "plugins": {' >> capacitor.config.json
+          echo '    "SplashScreen": {' >> capacitor.config.json
+          echo '      "launchShowDuration": 3000,' >> capacitor.config.json
+          echo '      "launchAutoHide": true,' >> capacitor.config.json
+          echo '      "backgroundColor": "#001a66",' >> capacitor.config.json
+          echo '      "androidSplashResourceName": "splash",' >> capacitor.config.json
+          echo '      "androidScaleType": "CENTER_CROP",' >> capacitor.config.json
+          echo '      "splashFullScreen": true,' >> capacitor.config.json
+          echo '      "splashImmersive": true,' >> capacitor.config.json
+          echo '      "showSpinner": false' >> capacitor.config.json
+          echo '    }' >> capacitor.config.json
+          echo '  }' >> capacitor.config.json
+          echo '}' >> capacitor.config.json
 
-      - name: Setup Java
+      - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
-          java-version: "21"
-          distribution: "temurin"
+          java-version: '21'
+          distribution: 'temurin'
           cache: gradle
 
-      - name: Create Android Project
+      - name: Initialize & Sync Android Project
         run: |
           npx cap add android
           npx cap sync android
+          if [ -f node_modules/capacitor-admob-nextgen/scripts/admob-manifest.js ]; then node node_modules/capacitor-admob-nextgen/scripts/admob-manifest.js; fi
+          if [ -f node_modules/capacitor-admob-nextgen/scripts/admob-native.js ]; then node node_modules/capacitor-admob-nextgen/scripts/admob-native.js; fi
+          sed -i '/<application/i \    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />' android/app/src/main/AndroidManifest.xml
 
-      - name: Configure AdMob Native
+      - name: Set Custom App and Notification Icons
         run: |
-          if [ -f node_modules/capacitor-admob-nextgen/scripts/admob-manifest.js ]; then
-            node node_modules/capacitor-admob-nextgen/scripts/admob-manifest.js
-          fi
-
-          if [ -f node_modules/capacitor-admob-nextgen/scripts/admob-native.js ]; then
-            node node_modules/capacitor-admob-nextgen/scripts/admob-native.js
-          fi
-
-      - name: Configure Android
-        run: |
-          MANIFEST="android/app/src/main/AndroidManifest.xml"
-
-          sed -i '/<application/i \
-          <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />' "$MANIFEST"
-
-          sed -i '/<application/i \
-          <uses-permission android:name="android.permission.INTERNET" />' "$MANIFEST"
-
-      - name: Set Icons
-        run: |
+          # 1. Set OneSignal Notification Icons (s2.png)
           mkdir -p android/app/src/main/res/drawable
-
           cp s2.png android/app/src/main/res/drawable/ic_stat_onesignal_default.png
           cp s2.png android/app/src/main/res/drawable/ic_onesignal_large_icon_default.png
-
+          
+          # 2. Set Main App Icons (s.png) across all Android resolution folders
           for dir in mipmap-mdpi mipmap-hdpi mipmap-xhdpi mipmap-xxhdpi mipmap-xxxhdpi; do
-            mkdir -p android/app/src/main/res/$dir
             cp s.png android/app/src/main/res/$dir/ic_launcher.png
             cp s.png android/app/src/main/res/$dir/ic_launcher_round.png
             cp s.png android/app/src/main/res/$dir/ic_launcher_foreground.png
           done
 
-      - name: Configure Android SDK
+      - name: Target Android SDK 36
         run: |
           if [ -f android/variables.gradle ]; then
             sed -i 's/targetSdkVersion = .*/targetSdkVersion = 36/' android/variables.gradle
             sed -i 's/compileSdkVersion = .*/compileSdkVersion = 36/' android/variables.gradle
             sed -i 's/minSdkVersion = .*/minSdkVersion = 24/' android/variables.gradle
           fi
+          sed -i 's/targetSdkVersion .*/targetSdkVersion 36/' android/app/build.gradle
+          sed -i 's/compileSdkVersion .*/compileSdkVersion 36/' android/app/build.gradle
+          sed -i 's/minSdk .*/minSdk 24/' android/app/build.gradle
+          sed -i 's/minSdkVersion .*/minSdkVersion 24/' android/app/build.gradle
 
-      - name: Set Version
+      - name: Set Dynamic Version Code
         run: |
-          sed -i "s/versionCode 1/versionCode ${{ github.run_number }}/" \
-            android/app/build.gradle
+          sed -i 's/versionCode 1/versionCode ${{ github.run_number }}/' android/app/build.gradle
+          sed -i 's/versionName "1.0"/versionName "1.0.${{ github.run_number }}"/' android/app/build.gradle
 
-          sed -i "s/versionName \"1.0\"/versionName \"1.0.${{ github.run_number }}\"/" \
-            android/app/build.gradle
-
-      - name: Add Firebase
+      - name: Add Google Services JSON
         run: |
-          cat > android/app/google-services.json <<'EOF'
+          cat << 'EOF' > android/app/google-services.json
           ${{ secrets.GOOGLE_SERVICES_JSON }}
           EOF
 
-      # =========================================================
-      # CUSTOM WIDE NOTIFICATION
-      # =========================================================
+      # ============================================================
+      # OVERLAY POPUP SETUP — everything generated inline, no extra
+      # files need to be committed to your repo.
+      # ============================================================
 
-      - name: Create Notification Layout
+      - name: Add Overlay Permission & Service Declaration to Manifest
         run: |
-          mkdir -p android/app/src/main/res/layout
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          sed -i '/<application/i \    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />' "$MANIFEST"
+          sed -i '/<application/a \    <meta-data android:name="com.onesignal.NotificationServiceExtension" android:value="com.firatech.app.MyNotificationHandler" />' "$MANIFEST"
+          sed -i '/<\/application>/i \    <service android:name=".OverlayService" android:exported="false" android:foregroundServiceType="specialUse" />' "$MANIFEST"
 
-          cat > android/app/src/main/res/layout/notification_pinterest.xml <<'EOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <ImageView
-              xmlns:android="http://schemas.android.com/apk/res/android"
-              android:id="@+id/notification_image"
-              android:layout_width="match_parent"
-              android:layout_height="wrap_content"
-              android:adjustViewBounds="true"
-              android:scaleType="fitCenter"
-              android:contentDescription="@null" />
-          EOF
-
-      - name: Create Notification Service
+      - name: Add Picasso Dependency
         run: |
-          mkdir -p android/app/src/main/java/com/firatech/app
+          sed -i "/dependencies {/a\\    implementation 'com.squareup.picasso:picasso:2.71828'" android/app/build.gradle
 
-          cat > android/app/src/main/java/com/firatech/app/NotificationServiceExtension.java <<'EOF'
+      - name: Generate Overlay Java Classes
+        run: |
+          PKG_DIR="android/app/src/main/java/com/firatech/app"
+          mkdir -p "$PKG_DIR"
+
+          cat << 'EOF' > "$PKG_DIR/MainActivity.java"
           package com.firatech.app;
 
-          import android.app.NotificationChannel;
-          import android.app.NotificationManager;
-          import android.app.PendingIntent;
-          import android.content.Context;
           import android.content.Intent;
-          import android.graphics.Bitmap;
-          import android.graphics.BitmapFactory;
+          import android.net.Uri;
           import android.os.Build;
-          import android.widget.RemoteViews;
+          import android.os.Bundle;
+          import android.provider.Settings;
+          import com.getcapacitor.BridgeActivity;
 
-          import androidx.annotation.Keep;
-          import androidx.core.app.NotificationCompat;
-
-          import com.onesignal.notifications.INotificationReceivedEvent;
-          import com.onesignal.notifications.INotificationServiceExtension;
-
-          import java.io.InputStream;
-          import java.net.HttpURLConnection;
-          import java.net.URL;
-
-          @Keep
-          public class NotificationServiceExtension
-                  implements INotificationServiceExtension {
-
-              private static final String CHANNEL_ID =
-                      "netsa_tips_notifications";
-
-              private static final String IMAGE_URL =
-                      "https://hulum.online/push.png";
-
+          public class MainActivity extends BridgeActivity {
               @Override
-              public void onNotificationReceived(
-                      INotificationReceivedEvent event) {
+              public void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  checkOverlayPermission();
+              }
 
-                  try {
-                      Context context = event.getContext();
-
-                      String title =
-                              event.getNotification().getTitle();
-
-                      String body =
-                              event.getNotification().getBody();
-
-                      event.preventDefault();
-
-                      Bitmap image = downloadImage(IMAGE_URL);
-
-                      createChannel(context);
-
-                      RemoteViews views =
-                              new RemoteViews(
-                                  context.getPackageName(),
-                                  R.layout.notification_pinterest
-                              );
-
-                      if (image != null) {
-                          views.setImageViewBitmap(
-                              R.id.notification_image,
-                              image
+              private void checkOverlayPermission() {
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                      if (!Settings.canDrawOverlays(this)) {
+                          Intent intent = new Intent(
+                              Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                              Uri.parse("package:" + getPackageName())
                           );
-                      }
-
-                      Intent intent =
-                              context.getPackageManager()
-                                  .getLaunchIntentForPackage(
-                                      context.getPackageName()
-                                  );
-
-                      PendingIntent pendingIntent =
-                              PendingIntent.getActivity(
-                                  context,
-                                  1001,
-                                  intent,
-                                  PendingIntent.FLAG_UPDATE_CURRENT |
-                                  PendingIntent.FLAG_IMMUTABLE
-                              );
-
-                      NotificationCompat.Builder notification =
-                              new NotificationCompat.Builder(
-                                  context,
-                                  CHANNEL_ID
-                              )
-                              .setSmallIcon(
-                                  R.drawable.ic_stat_onesignal_default
-                              )
-                              .setContentTitle(title)
-                              .setContentText(body)
-                              .setCustomContentView(views)
-                              .setCustomBigContentView(views)
-                              .setCustomHeadsUpContentView(views)
-                              .setContentIntent(pendingIntent)
-                              .setAutoCancel(true)
-                              .setPriority(
-                                  NotificationCompat.PRIORITY_MAX
-                              )
-                              .setCategory(
-                                  NotificationCompat.CATEGORY_MESSAGE
-                              )
-                              .setVisibility(
-                                  NotificationCompat.VISIBILITY_PUBLIC
-                              );
-
-                      NotificationManager manager =
-                              (NotificationManager)
-                              context.getSystemService(
-                                  Context.NOTIFICATION_SERVICE
-                              );
-
-                      manager.notify(
-                          (int) System.currentTimeMillis(),
-                          notification.build()
-                      );
-
-                  } catch (Exception e) {
-                      e.printStackTrace();
-
-                      try {
-                          event.getNotification().display();
-                      } catch (Exception ignored) {}
-                  }
-              }
-
-              private void createChannel(Context context) {
-
-                  if (Build.VERSION.SDK_INT >=
-                      Build.VERSION_CODES.O) {
-
-                      NotificationManager manager =
-                              (NotificationManager)
-                              context.getSystemService(
-                                  Context.NOTIFICATION_SERVICE
-                              );
-
-                      NotificationChannel channel =
-                              new NotificationChannel(
-                                  CHANNEL_ID,
-                                  "Netsa Tips",
-                                  NotificationManager.IMPORTANCE_HIGH
-                              );
-
-                      channel.enableVibration(true);
-
-                      manager.createNotificationChannel(channel);
-                  }
-              }
-
-              private Bitmap downloadImage(String urlString) {
-
-                  HttpURLConnection connection = null;
-
-                  try {
-                      URL url = new URL(urlString);
-
-                      connection =
-                              (HttpURLConnection)
-                              url.openConnection();
-
-                      connection.setConnectTimeout(10000);
-                      connection.setReadTimeout(15000);
-                      connection.setDoInput(true);
-                      connection.connect();
-
-                      InputStream input =
-                              connection.getInputStream();
-
-                      return BitmapFactory.decodeStream(input);
-
-                  } catch (Exception e) {
-                      e.printStackTrace();
-                      return null;
-
-                  } finally {
-                      if (connection != null) {
-                          connection.disconnect();
+                          startActivity(intent);
                       }
                   }
               }
           }
           EOF
 
-      - name: Register Notification Service
+          cat << 'EOF' > "$PKG_DIR/OverlayService.java"
+          package com.firatech.app;
+
+          import android.app.Service;
+          import android.content.Intent;
+          import android.graphics.PixelFormat;
+          import android.os.Build;
+          import android.os.IBinder;
+          import android.provider.Settings;
+          import android.view.Gravity;
+          import android.view.LayoutInflater;
+          import android.view.View;
+          import android.view.WindowManager;
+          import android.widget.Button;
+          import android.widget.ImageView;
+          import android.widget.TextView;
+          import androidx.annotation.Nullable;
+          import com.squareup.picasso.Picasso;
+
+          public class OverlayService extends Service {
+              private WindowManager windowManager;
+              private View overlayView;
+
+              @Override
+              public void onCreate() {
+                  super.onCreate();
+                  windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
+              }
+
+              @Override
+              public int onStartCommand(Intent intent, int flags, int startId) {
+                  if (!Settings.canDrawOverlays(this)) {
+                      stopSelf();
+                      return START_NOT_STICKY;
+                  }
+
+                  String title = intent.getStringExtra("custom_title");
+                  String message = intent.getStringExtra("custom_message");
+                  String imageUrl = intent.getStringExtra("custom_image");
+
+                  showOverlay(title, message, imageUrl);
+                  return START_NOT_STICKY;
+              }
+
+              private void showOverlay(String title, String message, String imageUrl) {
+                  LayoutInflater inflater = LayoutInflater.from(this);
+                  overlayView = inflater.inflate(R.layout.overlay_popup, null);
+
+                  TextView titleView = overlayView.findViewById(R.id.overlay_title);
+                  TextView msgView = overlayView.findViewById(R.id.overlay_message);
+                  ImageView imgView = overlayView.findViewById(R.id.overlay_image);
+                  Button closeBtn = overlayView.findViewById(R.id.overlay_close);
+
+                  titleView.setText(title);
+                  msgView.setText(message);
+
+                  if (imageUrl != null && !imageUrl.isEmpty()) {
+                      Picasso.get().load(imageUrl).into(imgView);
+                  } else {
+                      imgView.setVisibility(View.GONE);
+                  }
+
+                  int overlayType = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+                      ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+                      : WindowManager.LayoutParams.TYPE_PHONE;
+
+                  WindowManager.LayoutParams params = new WindowManager.LayoutParams(
+                      WindowManager.LayoutParams.MATCH_PARENT,
+                      WindowManager.LayoutParams.WRAP_CONTENT,
+                      overlayType,
+                      WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+                      PixelFormat.TRANSLUCENT
+                  );
+                  params.gravity = Gravity.CENTER;
+
+                  closeBtn.setOnClickListener(v -> {
+                      windowManager.removeView(overlayView);
+                      stopSelf();
+                  });
+
+                  windowManager.addView(overlayView, params);
+              }
+
+              @Nullable
+              @Override
+              public IBinder onBind(Intent intent) {
+                  return null;
+              }
+
+              @Override
+              public void onDestroy() {
+                  super.onDestroy();
+                  if (overlayView != null) {
+                      windowManager.removeView(overlayView);
+                  }
+              }
+          }
+          EOF
+
+          cat << 'EOF' > "$PKG_DIR/MyNotificationHandler.java"
+          package com.firatech.app;
+
+          import android.content.Intent;
+          import com.onesignal.notifications.INotificationReceivedEvent;
+          import com.onesignal.notifications.INotificationServiceExtension;
+          import org.json.JSONObject;
+
+          public class MyNotificationHandler implements INotificationServiceExtension {
+              @Override
+              public void onNotificationReceived(INotificationReceivedEvent event) {
+                  JSONObject data = event.getNotification().getAdditionalData();
+                  if (data != null && "trigger_overlay_popup".equals(data.optString("action"))) {
+                      event.preventDefault();
+
+                      Intent overlayIntent = new Intent(
+                          event.getContext(), OverlayService.class
+                      );
+                      overlayIntent.putExtra("custom_title", data.optString("custom_title"));
+                      overlayIntent.putExtra("custom_message", data.optString("custom_message"));
+                      overlayIntent.putExtra("custom_image", data.optString("custom_image"));
+                      event.getContext().startService(overlayIntent);
+                  }
+              }
+          }
+          EOF
+
+      - name: Generate Overlay Layout XML
         run: |
-          MANIFEST="android/app/src/main/AndroidManifest.xml"
-          
-          # Fixed sed command: Looks for the closing tag to safely insert metadata
-          sed -i 's|</application>|<meta-data android:name="com.onesignal.NotificationServiceExtension" android:value="com.firatech.app.NotificationServiceExtension" /></application>|' "$MANIFEST"
+          mkdir -p android/app/src/main/res/layout
+          cat << 'EOF' > android/app/src/main/res/layout/overlay_popup.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:layout_width="match_parent"
+              android:layout_height="wrap_content"
+              android:orientation="vertical"
+              android:background="#DD001a66"
+              android:padding="20dp"
+              android:elevation="10dp">
 
-      # =========================================================
-      # BUILD
-      # =========================================================
+              <ImageView
+                  android:id="@+id/overlay_image"
+                  android:layout_width="match_parent"
+                  android:layout_height="180dp"
+                  android:scaleType="centerCrop"
+                  android:layout_marginBottom="12dp"/>
 
-      - name: Build APK
+              <TextView
+                  android:id="@+id/overlay_title"
+                  android:layout_width="wrap_content"
+                  android:layout_height="wrap_content"
+                  android:textColor="#FFFFFF"
+                  android:textStyle="bold"
+                  android:textSize="18sp"/>
+
+              <TextView
+                  android:id="@+id/overlay_message"
+                  android:layout_width="wrap_content"
+                  android:layout_height="wrap_content"
+                  android:textColor="#CCCCCC"
+                  android:textSize="14sp"
+                  android:layout_marginTop="6dp"
+                  android:layout_marginBottom="12dp"/>
+
+              <Button
+                  android:id="@+id/overlay_close"
+                  android:layout_width="wrap_content"
+                  android:layout_height="wrap_content"
+                  android:layout_gravity="end"
+                  android:text="Close"/>
+          </LinearLayout>
+          EOF
+
+      # ============================================================
+      # END OVERLAY POPUP SETUP
+      # ============================================================
+
+      - name: Build Installable Debug APK
         run: |
           cd android
-          chmod +x gradlew
+          chmod +x ./gradlew
           ./gradlew assembleDebug
 
-      - name: Rename APK
-        run: |
-          mv android/app/build/outputs/apk/debug/app-debug.apk \
-            fira-tech.apk
+      - name: Move & Rename APK Output
+        run: mv android/app/build/outputs/apk/debug/app-debug.apk fira-tech.apk
 
-      - name: Upload APK
+      - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: fira-tech-apk
           path: fira-tech.apk
 
-      # =========================================================
-      # PUSH
-      # =========================================================
-
-      - name: Send OneSignal Push
-        if: ${{ github.event_name == 'workflow_dispatch' }}
-        env:
-          TITLE: ${{ github.event.inputs.push_title }}
-          MESSAGE: ${{ github.event.inputs.push_message }}
-          ONESIGNAL_APP_ID: ${{ secrets.ONESIGNAL_APP_ID }}
-          ONESIGNAL_API_KEY: ${{ secrets.ONESIGNAL_REST_API_KEY }}
+      - name: Send OneSignal Push Notification (Background Data)
         run: |
-          jq -n \
-            --arg app "$ONESIGNAL_APP_ID" \
-            --arg title "$TITLE" \
-            --arg message "$MESSAGE" \
-            '{
-              app_id: $app,
-              target_channel: "push",
-              included_segments: ["Subscribed Users"],
-              headings: {en: $title},
-              contents: {en: $message},
-              priority: 10
-            }' > payload.json
+          TITLE="${{ github.event.inputs.push_title || env.APP_NAME }}"
+          MESSAGE="${{ github.event.inputs.push_message || 'A new version or item has been posted. Open the app to check it out!' }}"
+          IMAGE_URL="${{ github.event.inputs.image_url || '' }}"
+          
+          # This sends a silent data payload to wake up the app in the background
+          # so the OverlayService can draw the popup overlay.
+          PAYLOAD=$(cat <<EOF
+          {
+            "app_id": "${{ secrets.ONESIGNAL_APP_ID }}",
+            "included_segments": ["Subscribed Users"],
+            "data": {
+              "custom_title": "$TITLE",
+              "custom_message": "$MESSAGE",
+              "custom_image": "$IMAGE_URL",
+              "action": "trigger_overlay_popup"
+            },
+            "content_available": true,
+            "priority": 10,
+            "android_channel_id": "2c87aaaf-d24f-4855-a992-3d749a5a016f"
+          }
+          EOF
+          )
 
-          curl --fail-with-body \
-            --request POST \
-            --url "https://api.onesignal.com/notifications" \
-            --header "Authorization: Key ${ONESIGNAL_API_KEY}" \
+          curl --request POST \
+            --url https://onesignal.com/api/v1/notifications \
+            --header "Authorization: Basic ${{ secrets.ONESIGNAL_REST_API_KEY }}" \
             --header "Content-Type: application/json" \
-            --data @payload.json
+            --data "$PAYLOAD"
