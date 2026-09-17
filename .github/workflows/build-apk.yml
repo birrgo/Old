@@ -97,6 +97,9 @@ jobs:
 
       - name: Inject Custom Notification Layout and Native Code
         run: |
+          # 0. EXPOSE ONESIGNAL SDK TO THE APP MODULE TO FIX COMPILATION ERROR
+          sed -i '/dependencies {/a \    compileOnly "com.onesignal:OneSignal:5.1.8"' android/app/build.gradle
+
           # 1. Generate the XML layout file
           mkdir -p android/app/src/main/res/layout
           cat << 'EOF' > android/app/src/main/res/layout/custom_heads_up_notification.xml
@@ -116,7 +119,7 @@ jobs:
           </LinearLayout>
           EOF
 
-          # 2. Generate the Java Service File (Updated for OneSignal v4)
+          # 2. Generate the Java Service File (OneSignal SDK v5)
           mkdir -p android/app/src/main/java/com/firatech/app
           cat << 'EOF' > android/app/src/main/java/com/firatech/app/CustomNotificationService.java
           package com.firatech.app; 
@@ -127,18 +130,18 @@ jobs:
           import android.widget.RemoteViews;
           import androidx.core.app.NotificationCompat;
           
-          import com.onesignal.OSNotificationServiceExtension;
-          import com.onesignal.OSNotificationReceivedEvent;
-          import com.onesignal.OSMutableNotification;
+          import com.onesignal.notifications.INotificationReceivedEvent;
+          import com.onesignal.notifications.INotificationServiceExtension;
+          import com.onesignal.notifications.IMutableNotification;
           
           import java.io.InputStream;
           import java.net.URL;
 
-          public class CustomNotificationService implements OSNotificationServiceExtension {
+          public class CustomNotificationService implements INotificationServiceExtension {
               @Override
-              public void onNotificationReceived(OSNotificationReceivedEvent event) {
+              public void onNotificationReceived(INotificationReceivedEvent event) {
                   Context context = event.getContext();
-                  OSMutableNotification mutableNotification = event.getNotification().mutableCopy();
+                  IMutableNotification mutableNotification = event.getNotification();
 
                   String customImgUrl = null;
                   if (mutableNotification.getAdditionalData() != null) {
@@ -150,7 +153,6 @@ jobs:
                           InputStream in = new URL(customImgUrl).openStream();
                           final Bitmap bitmap = BitmapFactory.decodeStream(in);
 
-                          // Use OneSignal's built-in extender to safely modify the layout
                           mutableNotification.setExtender(builder -> {
                               RemoteViews customView = new RemoteViews(context.getPackageName(), R.layout.custom_heads_up_notification);
                               customView.setImageViewBitmap(R.id.img_main, bitmap);
@@ -162,9 +164,6 @@ jobs:
                           e.printStackTrace();
                       }
                   }
-                  
-                  // Tell OneSignal to display the modified notification
-                  event.complete(mutableNotification);
               }
           }
           EOF
