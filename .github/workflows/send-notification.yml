@@ -14,7 +14,7 @@ on:
         default: 'A new version or item has been posted. Open the app to check it out!'
         type: string
       image_url:
-        description: 'Image URL for Big Picture Popup (Optional)'
+        description: 'Big Picture Image URL (Optional)'
         required: false
         type: string
 
@@ -22,31 +22,42 @@ jobs:
   notify:
     runs-on: ubuntu-latest
     steps:
-      - name: Send OneSignal Overlay Push
+      - name: Send OneSignal Push Notification
         run: |
           TITLE="${{ github.event.inputs.push_title }}"
           MESSAGE="${{ github.event.inputs.push_message }}"
-          IMAGE_URL="${{ github.event.inputs.image_url || '' }}"
+          IMAGE_URL="${{ github.event.inputs.image_url }}"
+
+          if [ -n "$IMAGE_URL" ]; then
+            IMAGE_FIELDS=",\"big_picture\": \"$IMAGE_URL\", \"large_icon\": \"$IMAGE_URL\""
+          else
+            IMAGE_FIELDS=""
+          fi
 
           PAYLOAD=$(cat <<EOF
           {
             "app_id": "${{ secrets.ONESIGNAL_APP_ID }}",
             "included_segments": ["Subscribed Users"],
-            "data": {
-              "custom_title": "$TITLE",
-              "custom_message": "$MESSAGE",
-              "custom_image": "$IMAGE_URL",
-              "action": "trigger_overlay_popup"
-            },
-            "content_available": true,
-            "priority": 10,
-            "android_channel_id": "2c87aaaf-d24f-4855-a992-3d749a5a016f"
+            "headings": {"en": "$TITLE"},
+            "contents": {"en": "$MESSAGE"},
+            "android_channel_id": "2c87aaaf-d24f-4855-a992-3d749a5a016f",
+            "priority": 10
+            $IMAGE_FIELDS
           }
           EOF
           )
 
-          curl --request POST \
+          RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" \
+            --request POST \
             --url https://onesignal.com/api/v1/notifications \
             --header "Authorization: Basic ${{ secrets.ONESIGNAL_REST_API_KEY }}" \
             --header "Content-Type: application/json" \
-            --data "$PAYLOAD"
+            --data "$PAYLOAD")
+
+          echo "$RESPONSE"
+
+          HTTP_STATUS=$(echo "$RESPONSE" | grep "HTTP_STATUS" | cut -d: -f2)
+          if [ "$HTTP_STATUS" -ne 200 ]; then
+            echo "Notification failed with status $HTTP_STATUS"
+            exit 1
+          fi
