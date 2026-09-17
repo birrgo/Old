@@ -83,20 +83,80 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
-      - name: Initialize & Sync Android Project
+      - name: Initialize Android Project
         run: |
-          if [ ! -d "android" ]; then
-            npx cap add android
-          else
-            npx cap sync android
-          fi
+          # Force remove any partial android folder to guarantee a clean build
+          rm -rf android
+          npx cap add android
+          npx cap sync android
+          
           if [ -f node_modules/capacitor-admob-nextgen/scripts/admob-manifest.js ]; then node node_modules/capacitor-admob-nextgen/scripts/admob-manifest.js; fi
           if [ -f node_modules/capacitor-admob-nextgen/scripts/admob-native.js ]; then node node_modules/capacitor-admob-nextgen/scripts/admob-native.js; fi
           
-          # Prevent adding the permission multiple times if it already exists
-          if ! grep -q "android.permission.POST_NOTIFICATIONS" android/app/src/main/AndroidManifest.xml; then
-            sed -i '/<application/i \    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />' android/app/src/main/AndroidManifest.xml
-          fi
+          sed -i '/<application/i \    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />' android/app/src/main/AndroidManifest.xml
+
+      - name: Inject Custom Notification Layout and Native Code
+        run: |
+          # 1. Generate the XML layout file
+          mkdir -p android/app/src/main/res/layout
+          cat << 'EOF' > android/app/src/main/res/layout/custom_heads_up_notification.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:layout_width="match_parent"
+              android:layout_height="wrap_content"
+              android:orientation="horizontal"
+              android:padding="0dp"
+              android:background="#000000">
+              <ImageView
+                  android:id="@+id/img_main"
+                  android:layout_width="match_parent"
+                  android:layout_height="140dp"
+                  android:scaleType="centerCrop"
+                  android:adjustViewBounds="true" />
+          </LinearLayout>
+          EOF
+
+          # 2. Generate the Java Service File
+          mkdir -p android/app/src/main/java/com/firatech/app
+          cat << 'EOF' > android/app/src/main/java/com/firatech/app/CustomNotificationService.java
+          package com.firatech.app; 
+          import android.content.Context;
+          import android.graphics.Bitmap;
+          import android.graphics.BitmapFactory;
+          import android.widget.RemoteViews;
+          import androidx.core.app.NotificationCompat;
+          import com.onesignal.notifications.INotificationReceivedEvent;
+          import com.onesignal.notifications.INotificationServiceExtension;
+          import java.io.InputStream;
+          import java.net.URL;
+
+          public class CustomNotificationService implements INotificationServiceExtension {
+              @Override
+              public void onNotificationReceived(INotificationReceivedEvent event) {
+                  Context context = event.getContext();
+                  String customImgUrl = null;
+                  if (event.getNotification().getAdditionalData() != null) {
+                      customImgUrl = event.getNotification().getAdditionalData().optString("custom_heads_up_image", null);
+                  }
+                  if (customImgUrl != null) {
+                      try {
+                          InputStream in = new URL(customImgUrl).openStream();
+                          Bitmap bitmap = BitmapFactory.decodeStream(in);
+                          RemoteViews customView = new RemoteViews(context.getPackageName(), R.layout.custom_heads_up_notification);
+                          customView.setImageViewBitmap(R.id.img_main, bitmap);
+                          NotificationCompat.Builder builder = new NotificationCompat.Builder(context, event.getNotification().getAndroidNotificationChannelId());
+                          builder.setCustomHeadsUpContentView(customView);
+                          builder.setStyle(new NotificationCompat.DecoratedCustomViewStyle());
+                      } catch (Exception e) {
+                          e.printStackTrace();
+                      }
+                  }
+              }
+          }
+          EOF
+
+          # 3. Register the Java extension inside AndroidManifest.xml
+          sed -i '/<\/application>/i \        <meta-data android:name="com.onesignal.NotificationServiceExtension" android:value="com.firatech.app.CustomNotificationService" />' android/app/src/main/AndroidManifest.xml
 
       - name: Set Custom App and Notification Icons
         run: |
