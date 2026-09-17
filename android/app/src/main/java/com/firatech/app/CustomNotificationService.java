@@ -15,7 +15,7 @@ public class CustomNotificationService implements INotificationServiceExtension 
     public void onNotificationReceived(INotificationReceivedEvent event) {
         Context context = event.getContext();
         
-        // Extract custom image URL sent from GitHub Actions
+        // Extract the custom image URL sent from your GitHub Actions payload
         String customImgUrl = null;
         if (event.getNotification().getAdditionalData() != null) {
             customImgUrl = event.getNotification().getAdditionalData().optString("custom_heads_up_image", null);
@@ -27,11 +27,11 @@ public class CustomNotificationService implements INotificationServiceExtension 
                 InputStream in = new URL(customImgUrl).openStream();
                 Bitmap bitmap = BitmapFactory.decodeStream(in);
 
-                // Build custom RemoteViews layout
+                // Build custom layout
                 RemoteViews customView = new RemoteViews(context.getPackageName(), R.layout.custom_heads_up_notification);
                 customView.setImageViewBitmap(R.id.img_main, bitmap);
 
-                // Attach custom layout directly to the Heads-Up notification
+                // Force the custom image layout into the Heads-Up notification
                 NotificationCompat.Builder builder = new NotificationCompat.Builder(context, event.getNotification().getAndroidNotificationChannelId());
                 builder.setCustomHeadsUpContentView(customView);
                 builder.setStyle(new NotificationCompat.DecoratedCustomViewStyle());
