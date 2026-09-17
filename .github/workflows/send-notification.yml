@@ -28,9 +28,9 @@ jobs:
           MESSAGE="${{ github.event.inputs.push_message }}"
           IMAGE_URL="${{ github.event.inputs.image_url }}"
 
-          # The comma is included here so it appends correctly to the JSON
+          # We added the "data" payload here to trigger your custom Java code
           if [ -n "$IMAGE_URL" ]; then
-            IMAGE_FIELDS=",\"big_picture\": \"$IMAGE_URL\", \"large_icon\": \"$IMAGE_URL\""
+            IMAGE_FIELDS=",\"big_picture\": \"$IMAGE_URL\", \"large_icon\": \"$IMAGE_URL\", \"data\": {\"custom_heads_up_image\": \"$IMAGE_URL\"}"
           else
             IMAGE_FIELDS=""
           fi
