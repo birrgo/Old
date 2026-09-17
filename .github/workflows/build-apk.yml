@@ -152,7 +152,7 @@ jobs:
         run: |
           MANIFEST="android/app/src/main/AndroidManifest.xml"
           sed -i '/<application/i \    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />' "$MANIFEST"
-          sed -i '/<application/a \    <meta-data android:name="com.onesignal.NotificationServiceExtension" android:value="com.firatech.app.MyNotificationHandler" />' "$MANIFEST"
+          sed -i '/<\/application>/i \    <meta-data android:name="com.onesignal.NotificationServiceExtension" android:value="com.firatech.app.MyNotificationHandler" />' "$MANIFEST"
           sed -i '/<\/application>/i \    <service android:name=".OverlayService" android:exported="false" android:foregroundServiceType="specialUse" />' "$MANIFEST"
 
       - name: Add Picasso Dependency
