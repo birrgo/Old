@@ -28,6 +28,7 @@ jobs:
           MESSAGE="${{ github.event.inputs.push_message }}"
           IMAGE_URL="${{ github.event.inputs.image_url }}"
 
+          # The comma is included here so it appends correctly to the JSON
           if [ -n "$IMAGE_URL" ]; then
             IMAGE_FIELDS=",\"big_picture\": \"$IMAGE_URL\", \"large_icon\": \"$IMAGE_URL\""
           else
@@ -41,7 +42,10 @@ jobs:
             "headings": {"en": "$TITLE"},
             "contents": {"en": "$MESSAGE"},
             "android_channel_id": "2c87aaaf-d24f-4855-a992-3d749a5a016f",
-            "priority": 10
+            "priority": 10,
+            "buttons": [
+              {"id": "close_btn", "text": "Close"}
+            ]
             $IMAGE_FIELDS
           }
           EOF
