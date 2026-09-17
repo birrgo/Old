@@ -155,9 +155,9 @@ jobs:
           sed -i '/<\/application>/i \    <meta-data android:name="com.onesignal.NotificationServiceExtension" android:value="com.firatech.app.MyNotificationHandler" />' "$MANIFEST"
           sed -i '/<\/application>/i \    <service android:name=".OverlayService" android:exported="false" android:foregroundServiceType="specialUse" />' "$MANIFEST"
 
-      - name: Add Picasso Dependency
+      - name: Add Native Dependencies
         run: |
-          sed -i "/dependencies {/a\\    implementation 'com.squareup.picasso:picasso:2.71828'" android/app/build.gradle
+          sed -i "/dependencies {/a\\    implementation 'com.onesignal:OneSignal:5.1.+'\\n    implementation 'com.squareup.picasso:picasso:2.71828'" android/app/build.gradle
 
       - name: Generate Overlay Java Classes
         run: |
