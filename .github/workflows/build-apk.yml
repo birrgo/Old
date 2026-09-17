@@ -85,11 +85,18 @@ jobs:
 
       - name: Initialize & Sync Android Project
         run: |
-          npx cap add android
-          npx cap sync android
+          if [ ! -d "android" ]; then
+            npx cap add android
+          else
+            npx cap sync android
+          fi
           if [ -f node_modules/capacitor-admob-nextgen/scripts/admob-manifest.js ]; then node node_modules/capacitor-admob-nextgen/scripts/admob-manifest.js; fi
           if [ -f node_modules/capacitor-admob-nextgen/scripts/admob-native.js ]; then node node_modules/capacitor-admob-nextgen/scripts/admob-native.js; fi
-          sed -i '/<application/i \    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />' android/app/src/main/AndroidManifest.xml
+          
+          # Prevent adding the permission multiple times if it already exists
+          if ! grep -q "android.permission.POST_NOTIFICATIONS" android/app/src/main/AndroidManifest.xml; then
+            sed -i '/<application/i \    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />' android/app/src/main/AndroidManifest.xml
+          fi
 
       - name: Set Custom App and Notification Icons
         run: |
