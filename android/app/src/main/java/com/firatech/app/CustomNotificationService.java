@@ -5,8 +5,11 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.widget.RemoteViews;
 import androidx.core.app.NotificationCompat;
+
 import com.onesignal.notifications.INotificationReceivedEvent;
 import com.onesignal.notifications.INotificationServiceExtension;
+import com.onesignal.notifications.IMutableNotification;
+
 import java.io.InputStream;
 import java.net.URL;
 
@@ -14,28 +17,26 @@ public class CustomNotificationService implements INotificationServiceExtension 
     @Override
     public void onNotificationReceived(INotificationReceivedEvent event) {
         Context context = event.getContext();
-        
-        // Extract the custom image URL sent from your GitHub Actions payload
+        IMutableNotification mutableNotification = event.getNotification();
+
         String customImgUrl = null;
-        if (event.getNotification().getAdditionalData() != null) {
-            customImgUrl = event.getNotification().getAdditionalData().optString("custom_heads_up_image", null);
+        if (mutableNotification.getAdditionalData() != null) {
+            customImgUrl = mutableNotification.getAdditionalData().optString("custom_heads_up_image", null);
         }
 
         if (customImgUrl != null) {
             try {
-                // Download the image
                 InputStream in = new URL(customImgUrl).openStream();
-                Bitmap bitmap = BitmapFactory.decodeStream(in);
+                final Bitmap bitmap = BitmapFactory.decodeStream(in);
 
-                // Build custom layout
-                RemoteViews customView = new RemoteViews(context.getPackageName(), R.layout.custom_heads_up_notification);
-                customView.setImageViewBitmap(R.id.img_main, bitmap);
-
-                // Force the custom image layout into the Heads-Up notification
-                NotificationCompat.Builder builder = new NotificationCompat.Builder(context, event.getNotification().getAndroidNotificationChannelId());
-                builder.setCustomHeadsUpContentView(customView);
-                builder.setStyle(new NotificationCompat.DecoratedCustomViewStyle());
-
+                // Use OneSignal's v5 built-in extender
+                mutableNotification.setExtender(builder -> {
+                    RemoteViews customView = new RemoteViews(context.getPackageName(), R.layout.custom_heads_up_notification);
+                    customView.setImageViewBitmap(R.id.img_main, bitmap);
+                    builder.setCustomHeadsUpContentView(customView);
+                    builder.setStyle(new NotificationCompat.DecoratedCustomViewStyle());
+                    return builder;
+                });
             } catch (Exception e) {
                 e.printStackTrace();
             }
